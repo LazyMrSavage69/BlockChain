@@ -53,7 +53,7 @@ export default function AvatarCreator() {
 
   const fetchUser = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/me', {
+      const response = await fetch('/api/me', {
         credentials: 'include',
       });
 
@@ -79,7 +79,7 @@ export default function AvatarCreator() {
 
   const handleLogout = async () => {
     try {
-      await fetch('http://localhost:8000/auth/logout', {
+      await fetch('/auth/logout', {
         method: 'POST',
         credentials: 'include',
       });
@@ -100,7 +100,7 @@ export default function AvatarCreator() {
   if (!user) return;
 
   try {
-    const response = await fetch('http://localhost:8000/api/avatars', {
+    const response = await fetch('/api/avatars', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -108,6 +108,8 @@ export default function AvatarCreator() {
       credentials: 'include', // IMPORTANT: sends your session_token cookie
       body: JSON.stringify({
         userId: user.id,
+        email: user.email,        
+        name: user.name, 
         avatarUrl,
         style: selectedStyle,
         seed,

@@ -1,16 +1,40 @@
+version: '3.8'
+
 services:
-  mysql_bp:
-    image: mysql:latest
-    restart: unless-stopped
+  mysql-db:
+    image: mysql:8.0
+    container_name: mysql-db
     environment:
-      MYSQL_DATABASE: ${BLUEPRINT_DB_DATABASE}
-      MYSQL_USER: ${BLUEPRINT_DB_USERNAME}
-      MYSQL_PASSWORD: ${BLUEPRINT_DB_PASSWORD}
-      MYSQL_ROOT_PASSWORD: ${BLUEPRINT_DB_ROOT_PASSWORD}
+      MYSQL_ROOT_PASSWORD: evomegaknight
+      MYSQL_DATABASE: miniprojet        # match your .env DB name
+      MYSQL_USER: melkey
+      MYSQL_PASSWORD: megaknight
     ports:
-      - "${BLUEPRINT_DB_PORT}:3306"
+      - "3306:3306"
     volumes:
-      - mysql_volume_bp:/var/lib/mysql
+      - mysql_data:/var/lib/mysql
+      - ./miniprojet.sql:/docker-entrypoint-initdb.d/miniprojet.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  auth-service:
+    build: .
+    container_name: auth-service
+    ports:
+      - "3060:3060"
+    environment:
+      - PORT=3060
+      - APP_ENV=local
+      - BLUEPRINT_DB_HOST=mysql-db
+      - BLUEPRINT_DB_PORT=3306
+      - BLUEPRINT_DB_DATABASE=miniprojet
+      - BLUEPRINT_DB_USERNAME=melkey
+      - BLUEPRINT_DB_PASSWORD=megaknight
+    depends_on:
+      mysql-db:
+        condition: service_healthy
 
 volumes:
-  mysql_volume_bp:
+  mysql_data:

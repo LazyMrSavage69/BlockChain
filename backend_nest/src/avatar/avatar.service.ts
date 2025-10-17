@@ -11,19 +11,37 @@ export class AvatarService {
   ) {}
 
   async saveAvatar(createAvatarDto: CreateAvatarDto): Promise<Avatar> {
-    const { userId } = createAvatarDto;
-
-    const existingAvatar = await this.avatarModel.findOne({ userId });
-
-    if (existingAvatar) {
-      existingAvatar.avatarUrl = createAvatarDto.avatarUrl;
-      existingAvatar.style = createAvatarDto.style;
-      existingAvatar.seed = createAvatarDto.seed;
-      return existingAvatar.save();
+    try {
+      console.log('📝 Attempting to save avatar:', createAvatarDto);
+      
+      const { userId } = createAvatarDto;
+      const existingAvatar = await this.avatarModel.findOne({ userId });
+      
+      console.log('🔍 Existing avatar check:', existingAvatar ? 'Found' : 'Not found');
+      
+      if (existingAvatar) {
+        existingAvatar.avatarUrl = createAvatarDto.avatarUrl;
+        existingAvatar.style = createAvatarDto.style;
+        existingAvatar.seed = createAvatarDto.seed;
+        const saved = await existingAvatar.save();
+        console.log('✅ Updated existing avatar:', saved._id);
+        return saved;
+      }
+      
+      const newAvatar = new this.avatarModel(createAvatarDto);
+      console.log('🆕 Creating new avatar document');
+      const saved = await newAvatar.save();
+      console.log('✅ Saved new avatar with _id:', saved._id);
+      
+      // VERIFY IT WAS SAVED
+      const verify = await this.avatarModel.findById(saved._id);
+      console.log('🔍 Verification check:', verify ? 'SUCCESS - Found in DB' : 'FAILED - Not in DB');
+      
+      return saved;
+    } catch (error) {
+      console.error('❌ Error saving avatar:', error);
+      throw error;
     }
-
-    const newAvatar = new this.avatarModel(createAvatarDto);
-    return newAvatar.save();
   }
 
   async getAvatarByUserId(userId: number): Promise<Avatar> {
@@ -42,7 +60,6 @@ export class AvatarService {
     if (!avatar) {
       throw new NotFoundException(`Avatar not found for user ${userId}`);
     }
-
     Object.assign(avatar, updateAvatarDto);
     return avatar.save();
   }

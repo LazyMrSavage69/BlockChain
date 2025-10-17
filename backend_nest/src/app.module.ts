@@ -9,7 +9,19 @@ import { AvatarModule } from './avatar/avatar.module';
       isGlobal: true,
     }),
     MongooseModule.forRoot(
-      process.env.MONGODB_URI || 'mongodb://localhost:27017/avatars',
+      process.env.MONGODB_URI || 'mongodb://localhost:27017/miniprojet',
+      {
+        connectionFactory: (connection) => {
+          connection.on('connected', () => {
+            console.log('✅ MongoDB connected successfully');
+            console.log('📍 Database name:', connection.db?.databaseName);
+          });
+          connection.on('error', (error) => {
+            console.error('❌ MongoDB connection error:', error);
+          });
+          return connection;
+        },
+      }
     ),
     AvatarModule,
   ],

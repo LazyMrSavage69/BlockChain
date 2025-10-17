@@ -7,12 +7,30 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
 )
+
+// Helper function for min
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+// Get environment variable with fallback
+func getEnv(key, fallback string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return fallback
+}
 
 // --- CORS middleware for all requests ---
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+		frontendURL := getEnv("FRONTEND_URL", "http://localhost:3000")
+		w.Header().Set("Access-Control-Allow-Origin", frontendURL)
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, Cookie")
 		w.Header().Set("Access-Control-Allow-Credentials", "true")
@@ -30,6 +48,11 @@ func corsMiddleware(next http.Handler) http.Handler {
 // Custom proxy handler that ensures CORS headers are preserved
 func createProxyHandler(proxy *httputil.ReverseProxy) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// Add X-Forwarded headers so backend knows original request details
+		r.Header.Set("X-Forwarded-Host", r.Host)
+		r.Header.Set("X-Forwarded-Proto", "http")
+		r.Header.Set("X-Forwarded-For", r.RemoteAddr)
+
 		// Store original response writer
 		proxy.ModifyResponse = func(resp *http.Response) error {
 			// Remove any CORS headers from auth server to avoid conflicts
@@ -44,8 +67,19 @@ func createProxyHandler(proxy *httputil.ReverseProxy) http.HandlerFunc {
 }
 
 func main() {
+	// Get URLs from environment variables
+	authServiceURL := getEnv("AUTH_SERVICE_URL", "http://localhost:3060")
+	backendServiceURL := getEnv("BACKEND_SERVICE_URL", "http://localhost:5000")
+	frontendURL := getEnv("FRONTEND_URL", "http://localhost:3000")
+	port := getEnv("PORT", "8000")
+
+	log.Printf("🚀 Starting Gateway on port %s", port)
+	log.Printf("📡 Auth Service: %s", authServiceURL)
+	log.Printf("📡 Backend Service: %s", backendServiceURL)
+	log.Printf("🌐 Frontend: %s", frontendURL)
+
 	// Auth server URL
-	authURL, err := url.Parse("http://localhost:3060")
+	authURL, err := url.Parse(authServiceURL)
 	if err != nil {
 		log.Fatalf("Failed to parse Auth server URL: %v", err)
 	}
@@ -80,7 +114,7 @@ func main() {
 			SameSite: http.SameSiteLaxMode,
 			MaxAge:   86400 * 7, // 7 days
 		})
-		http.Redirect(w, r, "http://localhost:3000/avatar", http.StatusFound)
+		http.Redirect(w, r, frontendURL+"/avatar", http.StatusFound)
 	})
 
 	// --- EMAIL/PASSWORD AUTH (using proxy handler) ---
@@ -96,7 +130,7 @@ func main() {
 			return
 		}
 
-		resp, err := http.Post("http://localhost:3060/auth/login", "application/json", r.Body)
+		resp, err := http.Post(authServiceURL+"/auth/login", "application/json", r.Body)
 		if err != nil {
 			http.Error(w, "Failed to reach auth server", http.StatusInternalServerError)
 			return
@@ -149,7 +183,7 @@ func main() {
 		log.Printf("Found session cookie: %s", cookie.Value[:10]+"...") // Log first 10 chars
 
 		// Create new request to auth server
-		req, err := http.NewRequest("GET", "http://localhost:3060/api/me", nil)
+		req, err := http.NewRequest("GET", authServiceURL+"/api/me", nil)
 		if err != nil {
 			http.Error(w, "Failed to create request", http.StatusInternalServerError)
 			return
@@ -185,29 +219,73 @@ func main() {
 
 	mux.HandleFunc("/api/", createProxyHandler(authProxy))
 
-	// --- AVATAR SERVICE (NestJS) ---
-	avatarsURL, err := url.Parse("http://localhost:5000")
-	if err != nil {
-		log.Fatalf("Failed to parse Avatars service URL: %v", err)
-	}
+	// --- AVATAR SERVICE (NestJS) - Custom handler with explicit cookie forwarding ---
+	mux.HandleFunc("/api/avatars", func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("Gateway received request: %s %s", r.Method, r.URL.Path)
 
-	avatarsProxy := httputil.NewSingleHostReverseProxy(avatarsURL)
+		// Get cookie from request
+		cookie, err := r.Cookie("session_token")
+		if err != nil {
+			log.Println("No session cookie found in gateway request")
+			http.Error(w, `{"error":"Unauthorized - No cookie"}`, http.StatusUnauthorized)
+			return
+		}
 
-	// Important: remove conflicting CORS headers
-	avatarsProxy.ModifyResponse = func(resp *http.Response) error {
-		resp.Header.Del("Access-Control-Allow-Origin")
-		resp.Header.Del("Access-Control-Allow-Methods")
-		resp.Header.Del("Access-Control-Allow-Headers")
-		resp.Header.Del("Access-Control-Allow-Credentials")
-		return nil
-	}
+		log.Printf("Found session cookie in gateway: %s...", cookie.Value[:min(10, len(cookie.Value))])
 
-	// Route /api/avatars requests to the NestJS service
-	mux.HandleFunc("/api/avatars", createProxyHandler(avatarsProxy))
+		// Create new request to NestJS backend
+		backendURL := backendServiceURL + r.URL.Path
+		req, err := http.NewRequest(r.Method, backendURL, r.Body)
+		if err != nil {
+			http.Error(w, "Failed to create request", http.StatusInternalServerError)
+			return
+		}
+
+		// Copy headers
+		for name, values := range r.Header {
+			for _, value := range values {
+				req.Header.Add(name, value)
+			}
+		}
+
+		// EXPLICITLY forward the cookie
+		req.AddCookie(cookie)
+		log.Printf("Forwarding cookie to backend: %s", req.Header.Get("Cookie"))
+
+		// Make request
+		client := &http.Client{}
+		resp, err := client.Do(req)
+		if err != nil {
+			log.Println("Failed to reach NestJS backend:", err)
+			http.Error(w, "Failed to reach backend", http.StatusInternalServerError)
+			return
+		}
+		defer resp.Body.Close()
+
+		// Read response
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			http.Error(w, "Failed to read response", http.StatusInternalServerError)
+			return
+		}
+
+		log.Printf("NestJS backend response status: %d", resp.StatusCode)
+		log.Printf("Response body: %s", string(body))
+
+		// Copy response headers
+		for name, values := range resp.Header {
+			for _, value := range values {
+				w.Header().Add(name, value)
+			}
+		}
+
+		w.WriteHeader(resp.StatusCode)
+		w.Write(body)
+	})
 
 	// Wrap all with CORS
 	handler := corsMiddleware(mux)
 
-	log.Println("Gateway running on :8000")
-	log.Fatal(http.ListenAndServe(":8000", handler))
+	log.Printf("Gateway running on :%s", port)
+	log.Fatal(http.ListenAndServe(":"+port, handler))
 }

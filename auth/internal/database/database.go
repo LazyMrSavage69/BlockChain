@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -28,7 +29,33 @@ type User struct {
 }
 
 func New() Service {
-	dsn := "root:@tcp(127.0.0.1:3306)/miniprojet?parseTime=true"
+	// Read from environment variables
+	dbHost := os.Getenv("BLUEPRINT_DB_HOST")
+	dbPort := os.Getenv("BLUEPRINT_DB_PORT")
+	dbUser := os.Getenv("BLUEPRINT_DB_USERNAME")
+	dbPass := os.Getenv("BLUEPRINT_DB_PASSWORD")
+	dbName := os.Getenv("BLUEPRINT_DB_DATABASE")
+
+	// Fallback to defaults if not set (for local development)
+	if dbHost == "" {
+		dbHost = "127.0.0.1"
+	}
+	if dbPort == "" {
+		dbPort = "3306"
+	}
+	if dbUser == "" {
+		dbUser = "root"
+	}
+	if dbName == "" {
+		dbName = "miniprojet"
+	}
+
+	// Build DSN
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true",
+		dbUser, dbPass, dbHost, dbPort, dbName)
+
+	log.Printf("Connecting to database at %s:%s...", dbHost, dbPort)
+
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
 		log.Fatal("Failed to connect to DB:", err)
@@ -36,6 +63,8 @@ func New() Service {
 	if err := db.Ping(); err != nil {
 		log.Fatal("Failed to ping DB:", err)
 	}
+
+	log.Println("Successfully connected to database!")
 	return Service{DB: db}
 }
 

@@ -1,0 +1,105 @@
+services:
+  mysql-db:
+    image: mysql:8.0
+    container_name: mysql-db
+    environment:
+      MYSQL_ROOT_PASSWORD: evomegaknight
+      MYSQL_DATABASE: miniprojet
+      MYSQL_USER: melkey
+      MYSQL_PASSWORD: megaknight
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./auth/miniprojet.sql:/docker-entrypoint-initdb.d/miniprojet.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+    networks:
+      - miniprojet-net
+
+  auth-service:
+    build:
+      context: ./auth
+    container_name: auth-service
+    ports:
+      - "3060:3060"
+    env_file:
+      - ./auth/.env
+    environment:
+      # Override these from .env file to ensure correct values
+      PORT: 3060
+      GATEWAY_URL: "http://localhost:8000"
+      FRONTEND_URL: "http://localhost:3000"
+    depends_on:
+      mysql-db:
+        condition: service_healthy
+    networks:
+      - miniprojet-net
+
+  gateway:
+    build:
+      context: ./gateway
+    container_name: gateway
+    ports:
+      - "8000:8000"
+    environment:
+      # CRITICAL: Use Docker service names, not localhost
+      AUTH_SERVICE_URL: "http://auth-service:3060"
+      BACKEND_SERVICE_URL: "http://backend_nest:5000"
+      FRONTEND_URL: "http://localhost:3000"
+      PORT: 8000
+    depends_on:
+      - auth-service
+      - mysql-db
+    networks:
+      - miniprojet-net
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: frontend
+    ports:
+      - "3000:3000"
+    environment:
+      # Frontend should talk to gateway, not directly to services
+      NEXT_PUBLIC_API_URL: "http://localhost:8000"
+    depends_on:
+      - gateway
+    networks:
+      - miniprojet-net
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: phpmyadmin
+    ports:
+      - "8080:80"
+    environment:
+      PMA_HOST: mysql-db
+      PMA_USER: melkey
+      PMA_PASSWORD: megaknight
+      PMA_ARBITRARY: 1
+    depends_on:
+      - mysql-db
+    networks:
+      - miniprojet-net
+
+  adminer:
+    image: adminer:latest
+    container_name: adminer
+    ports:
+      - "8081:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: mysql-db
+    depends_on:
+      - mysql-db
+    networks:
+      - miniprojet-net
+
+volumes:
+  mysql_data:
+
+networks:
+  miniprojet-net:
+    driver: bridge

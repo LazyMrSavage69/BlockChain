@@ -1,7 +1,10 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 
-@Schema({ timestamps: true })
+@Schema({ 
+  timestamps: true,
+  collection: 'avatars'  // EXPLICITLY set collection name
+})
 export class Avatar extends Document {
   @Prop({ required: true, unique: true })
   userId: number;

@@ -35,6 +35,34 @@ func (s *Server) RegisterRoutes() http.Handler {
 
 	// --- GOOGLE AUTH ROUTES ---
 	r.Get("/auth/{provider}", func(w http.ResponseWriter, r *http.Request) {
+		provider := chi.URLParam(r, "provider")
+
+		// CRITICAL FIX: Gothic uses r.URL to build the callback
+		// When behind a proxy, we need to fix the URL scheme and host
+
+		// Clear any existing gothic session to force fresh OAuth flow
+		session, _ := gothic.Store.Get(r, gothic.SessionName)
+		session.Options.MaxAge = -1
+		session.Save(r, w)
+
+		// Check if request came through gateway (proxy)
+		if r.Header.Get("X-Forwarded-Host") != "" {
+			r.URL.Scheme = "http"
+			r.URL.Host = r.Header.Get("X-Forwarded-Host")
+		} else {
+			// Fallback: manually set to gateway URL
+			r.URL.Scheme = "http"
+			r.URL.Host = "localhost:8000"
+		}
+
+		log.Printf("🔐 Starting OAuth for provider: %s", provider)
+		log.Printf("🔐 Request URL: %s://%s%s", r.URL.Scheme, r.URL.Host, r.URL.Path)
+		log.Printf("🔐 Request Host header: %s", r.Host)
+		log.Printf("🔐 X-Forwarded-Host: %s", r.Header.Get("X-Forwarded-Host"))
+
+		// IMPORTANT: Set the Host header too
+		r.Host = r.URL.Host
+
 		gothic.BeginAuthHandler(w, r)
 	})
 	r.Get("/auth/{provider}/callback", s.getAuthCallBackFunction)
