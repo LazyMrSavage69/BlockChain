@@ -28,7 +28,6 @@ services:
     env_file:
       - ./auth/.env
     environment:
-      # Override these from .env file to ensure correct values
       PORT: 3060
       GATEWAY_URL: "http://localhost:8000"
       FRONTEND_URL: "http://localhost:3000"
@@ -45,7 +44,6 @@ services:
     ports:
       - "8000:8000"
     environment:
-      # CRITICAL: Use Docker service names, not localhost
       AUTH_SERVICE_URL: "http://auth-service:3060"
       BACKEND_SERVICE_URL: "http://backend_nest:5000"
       FRONTEND_URL: "http://localhost:3000"
@@ -59,29 +57,17 @@ services:
   frontend:
     build:
       context: ./frontend
+      target: runner
     container_name: frontend
     ports:
       - "3000:3000"
     environment:
-      # Frontend should talk to gateway, not directly to services
+      # For client-side (browser) requests - NOT used in rewrites
       NEXT_PUBLIC_API_URL: "http://localhost:8000"
+      # For server-side requests - USED in rewrites
+      API_URL: "http://gateway:8000"
     depends_on:
       - gateway
-    networks:
-      - miniprojet-net
-
-  phpmyadmin:
-    image: phpmyadmin:latest
-    container_name: phpmyadmin
-    ports:
-      - "8080:80"
-    environment:
-      PMA_HOST: mysql-db
-      PMA_USER: melkey
-      PMA_PASSWORD: megaknight
-      PMA_ARBITRARY: 1
-    depends_on:
-      - mysql-db
     networks:
       - miniprojet-net
 

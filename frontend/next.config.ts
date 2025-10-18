@@ -18,18 +18,18 @@ const nextConfig: NextConfig = {
     ],
   },
   async rewrites() {
+    // Use API_URL for server-side requests (inside Docker)
+    // Falls back to gateway service name if not set
+    const apiUrl = process.env.API_URL || 'http://gateway:8000';
+    
     return [
       {
         source: '/api/:path*',
-        destination: process.env.NEXT_PUBLIC_API_URL
-          ? `${process.env.NEXT_PUBLIC_API_URL}/api/:path*`
-          : 'http://localhost:8000/api/:path*',
+        destination: `${apiUrl}/api/:path*`,
       },
       {
         source: '/auth/:path*',
-        destination: process.env.NEXT_PUBLIC_API_URL
-          ? `${process.env.NEXT_PUBLIC_API_URL}/auth/:path*`
-          : 'http://localhost:8000/auth/:path*',
+        destination: `${apiUrl}/auth/:path*`,
       },
     ];
   },
