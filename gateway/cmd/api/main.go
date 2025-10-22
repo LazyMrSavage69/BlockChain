@@ -66,6 +66,76 @@ func createProxyHandler(proxy *httputil.ReverseProxy) http.HandlerFunc {
 	}
 }
 
+// Generic backend proxy handler for NestJS endpoints
+func createBackendProxyHandler(backendServiceURL string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("Gateway received request: %s %s", r.Method, r.URL.Path)
+
+		// Create new request to NestJS backend
+		backendURL := backendServiceURL + r.URL.Path
+		if r.URL.RawQuery != "" {
+			backendURL += "?" + r.URL.RawQuery
+		}
+
+		req, err := http.NewRequest(r.Method, backendURL, r.Body)
+		if err != nil {
+			log.Printf("Failed to create request: %v", err)
+			http.Error(w, "Failed to create request", http.StatusInternalServerError)
+			return
+		}
+
+		// Copy headers
+		for name, values := range r.Header {
+			for _, value := range values {
+				req.Header.Add(name, value)
+			}
+		}
+
+		// Forward cookie if present (for authenticated endpoints)
+		if cookie, err := r.Cookie("session_token"); err == nil {
+			req.AddCookie(cookie)
+			log.Printf("Forwarding session cookie to backend")
+		}
+
+		// Make request
+		client := &http.Client{}
+		resp, err := client.Do(req)
+		if err != nil {
+			log.Printf("Failed to reach NestJS backend: %v", err)
+			http.Error(w, "Failed to reach backend", http.StatusInternalServerError)
+			return
+		}
+		defer resp.Body.Close()
+
+		// Read response
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			log.Printf("Failed to read response: %v", err)
+			http.Error(w, "Failed to read response", http.StatusInternalServerError)
+			return
+		}
+
+		log.Printf("NestJS backend response status: %d", resp.StatusCode)
+
+		// Copy response headers BUT skip CORS headers (handled by our middleware)
+		for name, values := range resp.Header {
+			// Skip CORS headers to avoid conflicts with our middleware
+			if name == "Access-Control-Allow-Origin" ||
+				name == "Access-Control-Allow-Methods" ||
+				name == "Access-Control-Allow-Headers" ||
+				name == "Access-Control-Allow-Credentials" {
+				continue
+			}
+			for _, value := range values {
+				w.Header().Add(name, value)
+			}
+		}
+
+		w.WriteHeader(resp.StatusCode)
+		w.Write(body)
+	}
+}
+
 func main() {
 	// Get URLs from environment variables
 	authServiceURL := getEnv("AUTH_SERVICE_URL", "http://localhost:3060")
@@ -283,9 +353,23 @@ func main() {
 		w.Write(body)
 	})
 
+	// --- CONTRACTS SERVICE (NestJS) ---
+	// Handle /contracts (get all contracts)
+	mux.HandleFunc("/contracts", createBackendProxyHandler(backendServiceURL))
+
+	// Handle /contracts/:id (get contract by ID) - must be registered after /contracts
+	mux.HandleFunc("/contracts/", createBackendProxyHandler(backendServiceURL))
+
 	// Wrap all with CORS
 	handler := corsMiddleware(mux)
 
-	log.Printf("Gateway running on :%s", port)
+	log.Printf("✅ Gateway running on :%s", port)
+	log.Printf("📋 Routes configured:")
+	log.Printf("   - /auth/*")
+	log.Printf("   - /api/me")
+	log.Printf("   - /api/avatars")
+	log.Printf("   - /contracts")
+	log.Printf("   - /contracts/:id")
+
 	log.Fatal(http.ListenAndServe(":"+port, handler))
 }

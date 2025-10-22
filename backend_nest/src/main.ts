@@ -5,9 +5,9 @@ import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  
+ 
   app.use(cookieParser());
-  
+ 
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -15,16 +15,14 @@ async function bootstrap() {
       transform: true,
     }),
   );
-  
-  app.enableCors({
-    origin: 'http://localhost:8000',
-    credentials: true,
-    allowedHeaders: ['Content-Type', 'x-session-token', 'Cookie'],
-  });
-  
+ 
+  // CORS is handled by the gateway - don't enable it here
+  // This prevents duplicate CORS headers
+  // app.enableCors() is removed
+ 
   await app.listen(5000);
   console.log('🚀 NestJS API running on http://localhost:5000');
-  
-
+  console.log('📡 CORS handled by gateway on http://localhost:8000');
 }
+
 bootstrap();

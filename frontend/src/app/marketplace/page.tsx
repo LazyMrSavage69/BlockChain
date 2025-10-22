@@ -245,21 +245,24 @@ const Marketplace: React.FC = () => {
     fetchUser();
   }, []);
 
-  useEffect(() => {
+      useEffect(() => {
     const fetchTemplates = async () => {
       try {
         setLoading(true);
-        await new Promise(resolve => setTimeout(resolve, 500));
-        setTemplates(mockTemplates);
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/contracts`);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      
+        const data: ContractTemplate[] = await response.json();
+        setTemplates(data);
       } catch (error) {
         console.error('Error fetching templates:', error);
       } finally {
         setLoading(false);
       }
     };
-
     fetchTemplates();
   }, []);
+
 
   const fetchUser = async () => {
     try {
