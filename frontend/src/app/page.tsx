@@ -2,12 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
+import Navbar from './navbar/page'; // Import the Navbar component
 
 // Hero Section Component
 function HeroSection() {
   const router = useRouter();
-
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-indigo-950 via-purple-900 to-indigo-950 px-4">
       {/* Animated background elements */}
@@ -37,7 +36,7 @@ function HeroSection() {
           </div>
         </div>
 
-        {/* Smart Contract Illustration - Replace with actual illustration */}
+        {/* Smart Contract Illustration */}
         <div className="flex justify-center">
           <div className="relative w-full max-w-md h-96">
             <div className="absolute inset-0 bg-gradient-to-tr from-purple-500 to-indigo-500 rounded-full opacity-30 blur-2xl animate-pulse"></div>
@@ -69,20 +68,63 @@ function HeroSection() {
 
 // Live Crypto Prices & Activity Section
 function LiveActivitySection() {
-  // Replace with real-time crypto data from API
   const [cryptoPrices, setCryptoPrices] = useState([
-    { symbol: 'BTC', price: 45320.50, change: 2.5 },
-    { symbol: 'ETH', price: 3150.75, change: -1.2 },
-    { symbol: 'BNB', price: 425.30, change: 3.8 },
-    { symbol: 'SOL', price: 105.20, change: 5.1 }
+    { symbol: 'BTC', price: 0, change: 0 },
+    { symbol: 'ETH', price: 0, change: 0 },
+    { symbol: 'BNB', price: 0, change: 0 },
+    { symbol: 'SOL', price: 0, change: 0 }
   ]);
-
   const [stats] = useState({
     activeContracts: 1247,
     totalSigned: 8956,
     activeUsers: 3421,
     blockchainTx: 15783
   });
+
+  useEffect(() => {
+    const fetchCryptoPrices = async () => {
+      try {
+        const [priceResponse, marketResponse] = await Promise.all([
+          fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,binancecoin,solana&vs_currencies=usd'),
+          fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,binancecoin,solana&vs_currencies=usd&include_24hr_change=true')
+        ]);
+
+        const priceData = await priceResponse.json();
+        const marketData = await marketResponse.json();
+
+        const updatedPrices = [
+          {
+            symbol: 'BTC',
+            price: priceData.bitcoin?.usd || 0,
+            change: marketData.bitcoin?.usd_24h_change || 0
+          },
+          {
+            symbol: 'ETH',
+            price: priceData.ethereum?.usd || 0,
+            change: marketData.ethereum?.usd_24h_change || 0
+          },
+          {
+            symbol: 'BNB',
+            price: priceData.binancecoin?.usd || 0,
+            change: marketData.binancecoin?.usd_24h_change || 0
+          },
+          {
+            symbol: 'SOL',
+            price: priceData.solana?.usd || 0,
+            change: marketData.solana?.usd_24h_change || 0
+          }
+        ];
+
+        setCryptoPrices(updatedPrices);
+      } catch (error) {
+        console.error('Error fetching crypto prices:', error);
+      }
+    };
+
+    fetchCryptoPrices();
+    const interval = setInterval(fetchCryptoPrices, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <section className="py-20 px-4 bg-gradient-to-b from-indigo-950 to-purple-950">
@@ -93,7 +135,7 @@ function LiveActivitySection() {
             <p className="text-purple-200">Real-time blockchain data and cryptocurrency market updates</p>
           </div>
 
-          {/* Live Crypto Prices - Replace with real API data */}
+          {/* Live Crypto Prices */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
             {cryptoPrices.map((crypto, index) => (
               <div
@@ -105,7 +147,7 @@ function LiveActivitySection() {
                   ${crypto.price.toLocaleString()}
                 </div>
                 <div className={`text-sm font-semibold ${crypto.change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                  {crypto.change >= 0 ? '↑' : '↓'} {Math.abs(crypto.change)}%
+                  {crypto.change >= 0 ? '↑' : '↓'} {Math.abs(crypto.change).toFixed(2)}%
                 </div>
               </div>
             ))}
@@ -207,7 +249,7 @@ function FeaturesSection() {
   ];
 
   return (
-    <section className="py-20 px-4 bg-gradient-to-b from-purple-950 to-indigo-950">
+    <section id="features" className="py-20 px-4 bg-gradient-to-b from-purple-950 to-indigo-950">
       <div className="container mx-auto">
         <div className="text-center mb-16">
           <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">
@@ -287,7 +329,7 @@ function RoadmapSection() {
   ];
 
   return (
-    <section className="py-20 px-4 bg-gradient-to-b from-indigo-950 to-purple-950">
+    <section id="roadmap" className="py-20 px-4 bg-gradient-to-b from-indigo-950 to-purple-950">
       <div className="container mx-auto">
         <div className="text-center mb-16">
           <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">Development Roadmap</h2>
@@ -334,18 +376,17 @@ function RoadmapSection() {
 
 // Team Section Component
 function TeamSection() {
-  // Replace with actual team member data
   const teamMembers = [
-    { name: 'Sarah Chen', role: 'CEO & Blockchain Architect', specialty: 'Smart Contracts', image: '/team/sarah.jpg' },
-    { name: 'Michael Rodriguez', role: 'CTO & Lead Developer', specialty: 'Full-Stack', image: '/team/michael.jpg' },
-    { name: 'Emily Watson', role: 'Head of Security', specialty: 'Cryptography', image: '/team/emily.jpg' },
-    { name: 'David Kim', role: 'Blockchain Developer', specialty: 'Solidity', image: '/team/david.jpg' },
-    { name: 'Jessica Park', role: 'UI/UX Designer', specialty: 'Product Design', image: '/team/jessica.jpg' },
-    { name: 'Alex Johnson', role: 'Smart Contract Auditor', specialty: 'Security', image: '/team/alex.jpg' }
+    { name: 'Sarah Chen', role: 'CEO & Blockchain Architect', specialty: 'Smart Contracts' },
+    { name: 'Michael Rodriguez', role: 'CTO & Lead Developer', specialty: 'Full-Stack' },
+    { name: 'Emily Watson', role: 'Head of Security', specialty: 'Cryptography' },
+    { name: 'David Kim', role: 'Blockchain Developer', specialty: 'Solidity' },
+    { name: 'Jessica Park', role: 'UI/UX Designer', specialty: 'Product Design' },
+    { name: 'Alex Johnson', role: 'Smart Contract Auditor', specialty: 'Security' }
   ];
 
   return (
-    <section className="py-20 px-4 bg-gradient-to-b from-purple-950 via-pink-950 to-purple-950">
+    <section id="team" className="py-20 px-4 bg-gradient-to-b from-purple-950 via-pink-950 to-purple-950">
       <div className="container mx-auto">
         <div className="text-center mb-16">
           <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">Meet Our Team</h2>
@@ -360,7 +401,6 @@ function TeamSection() {
               key={index}
               className="bg-gradient-to-br from-gray-900 to-purple-900 rounded-2xl p-8 text-center hover:transform hover:scale-105 transition-all"
             >
-              {/* Replace with actual team member images */}
               <div className="w-32 h-32 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full mx-auto mb-4 flex items-center justify-center text-white text-3xl font-bold">
                 {member.name.split(' ').map(n => n[0]).join('')}
               </div>
@@ -368,7 +408,6 @@ function TeamSection() {
               <p className="text-purple-300 font-medium mb-1">{member.role}</p>
               <p className="text-purple-400 text-sm mb-4">{member.specialty}</p>
               <div className="flex justify-center gap-3">
-                {/* Social icons - Replace with actual links */}
                 <a href="#" className="w-8 h-8 bg-purple-800 rounded-full flex items-center justify-center hover:bg-purple-700 transition-all" aria-label="LinkedIn">
                   <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
@@ -395,33 +434,28 @@ function TeamSection() {
 
 // Testimonials Section Component
 function TestimonialsSection() {
-  // Replace with actual user testimonials
   const testimonials = [
     {
       name: 'Jennifer Martinez',
       role: 'Freelance Developer',
-      avatar: '/avatars/jennifer.jpg',
       text: 'This platform transformed how I handle contracts with clients. The real-time signing feature saved me days of back-and-forth emails.',
       rating: 5
     },
     {
       name: 'Robert Chang',
       role: 'Startup Founder',
-      avatar: '/avatars/robert.jpg',
       text: 'Being able to create and store contracts on the blockchain gives me peace of mind. The transparency is unmatched.',
       rating: 5
     },
     {
       name: 'Amanda Foster',
       role: 'Legal Consultant',
-      avatar: '/avatars/amanda.jpg',
       text: 'The built-in communication feature makes coordinating with multiple signers incredibly easy. Highly recommended!',
       rating: 5
     },
     {
       name: 'Carlos Rivera',
       role: 'Business Owner',
-      avatar: '/avatars/carlos.jpg',
       text: 'I love the avatar feature—it adds a personal touch. Plus, having live crypto prices integrated is super convenient.',
       rating: 5
     }
@@ -444,7 +478,6 @@ function TestimonialsSection() {
               className="bg-gradient-to-br from-gray-900 to-purple-900 rounded-2xl p-8 border border-purple-500/20 hover:border-purple-500/40 transition-all"
             >
               <div className="flex items-center gap-4 mb-4">
-                {/* Replace with actual avatar images */}
                 <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white text-xl font-bold">
                   {testimonial.name.split(' ').map(n => n[0]).join('')}
                 </div>
@@ -509,7 +542,7 @@ function FAQSection() {
   ];
 
   return (
-    <section className="py-20 px-4 bg-gradient-to-b from-purple-950 to-indigo-950">
+    <section id="faq" className="py-20 px-4 bg-gradient-to-b from-purple-950 to-indigo-950">
       <div className="container mx-auto">
         <div className="grid lg:grid-cols-2 gap-12 items-start">
           {/* Left side - Title and illustration */}
@@ -521,7 +554,6 @@ function FAQSection() {
               Everything you need to know about creating and managing smart contracts on our platform
             </p>
             <div className="bg-gradient-to-br from-gray-900 to-purple-900 rounded-2xl p-8 max-w-md">
-              {/* FAQ illustration placeholder */}
               <div className="w-full h-64 bg-purple-800/30 rounded-lg flex items-center justify-center">
                 <svg className="w-32 h-32 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -627,7 +659,6 @@ function Footer() {
             Copyright © 2025 SmartContract.io. All Rights Reserved
           </p>
           <div className="flex gap-4">
-            {/* Social Media Icons - Replace with actual links */}
             <a href="#" className="w-10 h-10 bg-purple-800 rounded-full flex items-center justify-center hover:bg-purple-700 transition-all" aria-label="Twitter">
               <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z"/>
@@ -655,111 +686,13 @@ function Footer() {
   );
 }
 
-// Navbar Component
-function Navbar() {
-  const router = useRouter();
-  const [isDarkMode, setIsDarkMode] = useState(true);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-
-  const handleLogin = () => {
-    router.push('/login');
-  };
-
-  return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-indigo-950/80 backdrop-blur-lg border-b border-purple-500/20">
-      <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <div className="flex items-center">
-            <a href="#" className="text-white font-bold text-2xl flex items-center gap-2">
-              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              Ethéré
-            </a>
-          </div>
-
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-8">
-            <a href="#home" className="text-white hover:text-purple-300 transition-colors">Home</a>
-            <a href="#features" className="text-white hover:text-purple-300 transition-colors">Features</a>
-            <a href="#roadmap" className="text-white hover:text-purple-300 transition-colors">Roadmap</a>
-            <a href="#team" className="text-white hover:text-purple-300 transition-colors">Team</a>
-            <a href="#faq" className="text-white hover:text-purple-300 transition-colors">FAQ</a>
-          </div>
-
-          {/* Right Side Actions */}
-          <div className="flex items-center gap-4">
-            {/* Dark Mode Toggle */}
-            <button
-              onClick={() => setIsDarkMode(!isDarkMode)}
-              className="p-2 rounded-full bg-purple-800 hover:bg-purple-700 transition-all"
-              aria-label="Toggle dark mode"
-            >
-              {isDarkMode ? (
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                </svg>
-              ) : (
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                </svg>
-              )}
-            </button>
-
-            {/* Login Button */}
-            <button
-              onClick={handleLogin}
-              className="hidden md:block px-6 py-2 bg-white text-purple-900 rounded-full font-semibold hover:bg-purple-100 transition-all"
-            >
-              Sign In
-            </button>
-
-            {/* Mobile Menu Toggle */}
-            <button
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="md:hidden p-2 text-white"
-              aria-label="Toggle mobile menu"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                {isMobileMenuOpen ? (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                ) : (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                )}
-              </svg>
-            </button>
-          </div>
-        </div>
-
-        {/* Mobile Menu */}
-        {isMobileMenuOpen && (
-          <div className="md:hidden py-4 border-t border-purple-500/20">
-            <div className="flex flex-col space-y-4">
-              <a href="#home" className="text-white hover:text-purple-300 transition-colors">Home</a>
-              <a href="#features" className="text-white hover:text-purple-300 transition-colors">Features</a>
-              <a href="#roadmap" className="text-white hover:text-purple-300 transition-colors">Roadmap</a>
-              <a href="#team" className="text-white hover:text-purple-300 transition-colors">Team</a>
-              <a href="#faq" className="text-white hover:text-purple-300 transition-colors">FAQ</a>
-              <button
-                onClick={handleLogin}
-                className="px-6 py-2 bg-white text-purple-900 rounded-full font-semibold hover:bg-purple-100 transition-all w-full"
-              >
-                Sign In
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-    </nav>
-  );
-}
-
 // Main Page Component
 export default function Page() {
   return (
     <main className="min-h-screen bg-gradient-to-b from-indigo-950 to-black">
-      <Navbar />
+      {/* Use Navbar component with null user to show not logged in state */}
+      <Navbar user={null} />
+      
       <div className="pt-16"> {/* Padding to account for fixed navbar */}
         <HeroSection />
         <LiveActivitySection />

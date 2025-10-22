@@ -1,5 +1,5 @@
 # ---- Dependencies stage ----
-FROM node:20-alpine AS deps
+FROM node:20 AS deps
 WORKDIR /app
 
 # Copy package files
@@ -19,6 +19,7 @@ COPY . .
 # Set environment variables for build
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
+ENV NODE_OPTIONS="--max-old-space-size=8192"
 
 # Build the application
 RUN npm run build
@@ -48,5 +49,6 @@ EXPOSE 3000
 
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
+ENV NODE_OPTIONS="--max-old-space-size=4096"
 
 CMD ["node", "server.js"]

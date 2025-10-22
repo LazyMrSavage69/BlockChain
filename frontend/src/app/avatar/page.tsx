@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Navbar from '@/app/navbar/page';
-
+import ContractsPage from '../contractspage/page';
 interface User {
   id: number;
   email: string;
@@ -16,9 +16,9 @@ export default function AvatarCreator() {
   const [selectedStyle, setSelectedStyle] = useState('avataaars');
   const [seed, setSeed] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
+  const [hasExistingAvatar, setHasExistingAvatar] = useState(false);
   const router = useRouter();
 
-  // DiceBear styles
   const styles = [
     { id: 'avataaars', name: 'Avataaars', desc: 'Playful cartoon avatars' },
     { id: 'bottts', name: 'Bottts', desc: 'Cute robot characters' },
@@ -45,7 +45,6 @@ export default function AvatarCreator() {
   }, []);
 
   useEffect(() => {
-    // Generate avatar URL when style or seed changes
     if (seed) {
       const url = `https://api.dicebear.com/7.x/${selectedStyle}/svg?seed=${encodeURIComponent(seed)}`;
       setAvatarUrl(url);
@@ -61,9 +60,15 @@ export default function AvatarCreator() {
       if (response.ok) {
         const userData = await response.json();
         setUser(userData);
-        setSeed(userData.name || userData.email);
+        
+        // Check if user has existing avatar
+        await loadExistingAvatar(userData.id);
+        
+        // Set default seed if no existing avatar
+        if (!hasExistingAvatar) {
+          setSeed(userData.name || userData.email);
+        }
       } else {
-        // User not authenticated, but allow them to use avatar creator as guest
         setSeed('guest');
       }
     } catch (err) {
@@ -71,6 +76,32 @@ export default function AvatarCreator() {
       setSeed('guest');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadExistingAvatar = async (userId: number) => {
+    try {
+      const response = await fetch(`/api/avatars/check/${userId}`, {
+        credentials: 'include',
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success && data.hasAvatar) {
+        // User has existing avatar - load it
+        const avatar = data.data;
+        setSelectedStyle(avatar.style);
+        setSeed(avatar.seed);
+        setAvatarUrl(avatar.avatar_url);
+        setHasExistingAvatar(true);
+        console.log('✅ Loaded existing avatar');
+      } else {
+        setHasExistingAvatar(false);
+        console.log('📸 No existing avatar found');
+      }
+    } catch (err) {
+      console.error('Error loading avatar:', err);
+      setHasExistingAvatar(false);
     }
   };
 
@@ -126,7 +157,12 @@ export default function AvatarCreator() {
       const data = await response.json();
 
       if (response.ok) {
-        alert('Avatar saved successfully to database!');
+        alert(hasExistingAvatar ? 'Avatar updated successfully!' : 'Avatar saved successfully!');
+        setHasExistingAvatar(true);
+        // Redirect to contracts page after saving
+        setTimeout(() => {
+          router.push('/contractspage');
+        }, 1000);
       } else {
         alert('Failed to save avatar: ' + (data.error || 'Unknown error'));
       }
@@ -154,12 +190,10 @@ export default function AvatarCreator() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-950 via-purple-900 to-indigo-950">
-      {/* Navbar Component */}
       <Navbar user={user} onLogout={handleLogout} />
       
       <div className="pt-20 pb-12 px-4">
         <div className="max-w-7xl mx-auto">
-          {/* Header */}
           <div className="bg-gradient-to-br from-purple-900/50 to-indigo-900/50 backdrop-blur-sm border border-purple-500/20 rounded-2xl shadow-2xl p-6 md:p-8 mb-8">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <div>
@@ -172,28 +206,30 @@ export default function AvatarCreator() {
                   </h1>
                 </div>
                 <p className="text-purple-200 text-lg">
-                  Welcome back, <span className="font-semibold text-white">{user?.name}</span>
+                  {hasExistingAvatar ? (
+                    <>Welcome back, <span className="font-semibold text-white">{user?.name}</span>! Update your avatar below.</>
+                  ) : (
+                    <>Welcome, <span className="font-semibold text-white">{user?.name}</span>! Create your avatar to continue.</>
+                  )}
                 </p>
               </div>
               
               <button
-                onClick={() => router.push('/dashboard')}
+                onClick={() => router.push(hasExistingAvatar ? '/contracts' : '/dashboard')}
                 className="px-6 py-3 bg-white/10 border border-purple-400/30 text-white rounded-full hover:bg-white/20 transition-all"
               >
-                ← Back to Dashboard
+                ← Back to {hasExistingAvatar ? 'Contracts' : 'Dashboard'}
               </button>
             </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Left: Avatar Preview */}
             <div className="bg-gradient-to-br from-purple-900/50 to-indigo-900/50 backdrop-blur-sm border border-purple-500/20 rounded-2xl shadow-2xl p-6 md:p-8">
               <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
                 <span className="text-3xl">🎨</span>
                 Your Avatar
               </h2>
 
-              {/* Large Avatar Display */}
               <div className="relative bg-gradient-to-br from-purple-500/20 to-blue-500/20 rounded-2xl p-8 mb-6 flex items-center justify-center">
                 <div className="absolute inset-0 bg-gradient-to-br from-purple-500/30 to-blue-500/30 rounded-2xl blur-xl"></div>
                 {avatarUrl && (
@@ -205,7 +241,6 @@ export default function AvatarCreator() {
                 )}
               </div>
 
-              {/* Seed Input */}
               <div className="mb-6">
                 <label className="block text-sm font-semibold text-purple-200 mb-2">
                   Avatar Seed (Name/Text)
@@ -231,7 +266,6 @@ export default function AvatarCreator() {
                 </p>
               </div>
 
-              {/* Action Buttons */}
               <div className="grid grid-cols-2 gap-3 mb-3">
                 <button
                   onClick={downloadAvatar}
@@ -257,11 +291,10 @@ export default function AvatarCreator() {
                 onClick={saveAvatarToDB}
                 className="w-full px-4 py-3 bg-gradient-to-br from-purple-500 to-pink-500 text-white rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all shadow-lg font-semibold"
               >
-                💾 Save to Database
+                💾 {hasExistingAvatar ? 'Update Avatar & Continue' : 'Save Avatar & Continue'}
               </button>
             </div>
 
-            {/* Right: Style Selection */}
             <div className="bg-gradient-to-br from-purple-900/50 to-indigo-900/50 backdrop-blur-sm border border-purple-500/20 rounded-2xl shadow-2xl p-6 md:p-8">
               <h2 className="text-2xl font-bold text-white mb-2">
                 Choose Avatar Style
@@ -281,7 +314,6 @@ export default function AvatarCreator() {
                         : 'border-purple-500/20 hover:border-purple-400/50 hover:bg-purple-500/10'
                     }`}
                   >
-                    {/* Mini Preview */}
                     <div className="relative">
                       <div className={`absolute inset-0 rounded-full blur-md ${
                         selectedStyle === style.id ? 'bg-purple-500/50' : 'bg-purple-500/20'
@@ -311,7 +343,6 @@ export default function AvatarCreator() {
             </div>
           </div>
 
-          {/* Info Card */}
           <div className="mt-8 bg-gradient-to-br from-blue-900/40 to-indigo-900/40 backdrop-blur-sm border border-blue-500/20 rounded-2xl p-6 shadow-xl">
             <div className="flex items-start gap-4">
               <div className="text-4xl">💡</div>
@@ -348,13 +379,13 @@ export default function AvatarCreator() {
                     <svg className="w-5 h-5 text-purple-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
-                    <span>Save to database for permanent storage</span>
+                    <span>Save to database to access contracts</span>
                   </div>
                   <div className="flex items-start gap-2">
                     <svg className="w-5 h-5 text-purple-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
-                    <span>Use your avatar across the platform</span>
+                    <span>Update anytime to change your avatar</span>
                   </div>
                 </div>
               </div>

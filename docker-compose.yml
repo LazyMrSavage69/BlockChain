@@ -37,6 +37,21 @@ services:
     networks:
       - miniprojet-net
 
+  backend_nest:
+    build:
+      context: ./backend_nest
+      dockerfile: Dockerfile
+    container_name: backend_nest
+    ports:
+      - "5000:5000"
+    environment:
+      PORT: 5000
+      SUPABASE_URL: "https://nyntdivguybkjyqwirvi.supabase.co"
+      SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im55bnRkaXZndXlia2p5cXdpcnZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA4Nzk0NDAsImV4cCI6MjA3NjQ1NTQ0MH0.1sbn5zoTG3Lb4bsLWG8X7Mzxc321793zVxqDPwZgFaU"
+      NODE_ENV: production
+    networks:
+      - miniprojet-net
+
   gateway:
     build:
       context: ./gateway
@@ -50,6 +65,7 @@ services:
       PORT: 8000
     depends_on:
       - auth-service
+      - backend_nest
       - mysql-db
     networks:
       - miniprojet-net
@@ -62,9 +78,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      # For client-side (browser) requests - NOT used in rewrites
       NEXT_PUBLIC_API_URL: "http://localhost:8000"
-      # For server-side requests - USED in rewrites
       API_URL: "http://gateway:8000"
     depends_on:
       - gateway

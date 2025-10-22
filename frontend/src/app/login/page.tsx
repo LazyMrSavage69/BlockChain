@@ -1,11 +1,11 @@
 "use client"
-import Router, { useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import Image from "next/image";
 
 export default function Login(){
-
- const [isSignUp, setIsSignUp] = useState(true);
+  const router = useRouter();
+  const [isSignUp, setIsSignUp] = useState(true);
   const [showVerification, setShowVerification] = useState(false);
   const [countdown, setCountdown] = useState(10);
   const [canResend, setCanResend] = useState(false);
@@ -42,6 +42,31 @@ export default function Login(){
     window.location.href = "http://localhost:8000/auth/google";
   };
 
+  // Check if user has avatar and redirect accordingly
+  const checkAvatarAndRedirect = async (userId: number) => {
+    try {
+      const response = await fetch(`/api/avatars/check/${userId}`, {
+        credentials: 'include',
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        if (data.hasAvatar) {
+          // User has avatar, go to contracts
+          router.push('/contracts');
+        } else {
+          // User doesn't have avatar, go to avatar creator
+          router.push('/avatar');
+        }
+      } else {
+        router.push('/avatar');
+      }
+    } catch (err) {
+      router.push('/avatar');
+    }
+  };
+
   const handleSignUp = async () => {
     if (!formData.name || !formData.email || !formData.password) {
       setError("All fields are required");
@@ -57,14 +82,13 @@ export default function Login(){
         headers: {
           "Content-Type": "application/json",
         },
-        credentials: "include", // CRITICAL: Include cookies
+        credentials: "include",
         body: JSON.stringify(formData),
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        // Show verification modal
         setShowVerification(true);
         setCountdown(10);
         setCanResend(false);
@@ -94,7 +118,7 @@ export default function Login(){
         headers: {
           "Content-Type": "application/json",
         },
-        credentials: "include", // CRITICAL: Include cookies
+        credentials: "include",
         body: JSON.stringify({
           email: formData.email,
           password: formData.password,
@@ -104,14 +128,21 @@ export default function Login(){
       const data = await response.json();
 
       if (response.ok) {
-        console.log('Login successful, cookie should be set');
-        console.log('Cookies:', document.cookie);
+        console.log('Login successful, checking avatar status...');
         
-        // Cookie is automatically set by the gateway
-        // Wait a moment for cookie to be set, then redirect
-        setTimeout(() => {
-          window.location.href = "/avatar";
-        }, 500);
+        // Get user info first
+        const userResponse = await fetch('/api/me', {
+          credentials: 'include',
+        });
+
+        if (userResponse.ok) {
+          const userData = await userResponse.json();
+          // Check avatar and redirect
+          await checkAvatarAndRedirect(userData.id);
+        } else {
+          // Fallback to avatar page
+          router.push('/avatar');
+        }
       } else {
         setError(data.error || "Login failed");
       }
@@ -138,7 +169,7 @@ export default function Login(){
         headers: {
           "Content-Type": "application/json",
         },
-        credentials: "include", // CRITICAL: Include cookies
+        credentials: "include",
         body: JSON.stringify({
           email: formData.email,
           code: verificationCode,
@@ -148,7 +179,6 @@ export default function Login(){
       const data = await response.json();
 
       if (response.ok) {
-        // Close modal and switch to login
         setShowVerification(false);
         setIsSignUp(false);
         setVerificationCode("");
@@ -175,7 +205,7 @@ export default function Login(){
         headers: {
           "Content-Type": "application/json",
         },
-        credentials: "include", // CRITICAL: Include cookies
+        credentials: "include",
         body: JSON.stringify({ email: formData.email }),
       });
 
@@ -184,7 +214,7 @@ export default function Login(){
       if (response.ok) {
         setCountdown(10);
         setCanResend(false);
-        setVerificationCode(""); // Clear previous code
+        setVerificationCode("");
         alert("Verification code resent!");
       } else {
         setError(data.error || "Failed to resend code");
@@ -239,7 +269,7 @@ export default function Login(){
             onClick={() => {
               setIsSignUp(!isSignUp);
               setError("");
-              setFormData({ name: "", email: "", password: "" }); // Clear form
+              setFormData({ name: "", email: "", password: "" });
             }}
             className="w-full bg-teal-600 text-white py-3 rounded-lg shadow-md hover:bg-teal-700 transition duration-300"
           >
@@ -375,7 +405,6 @@ export default function Login(){
                   type="text"
                   value={verificationCode}
                   onChange={(e) => {
-                    // Only allow numbers
                     const value = e.target.value.replace(/\D/g, '');
                     setVerificationCode(value);
                     setError("");
@@ -434,7 +463,4 @@ export default function Login(){
       )}
     </div>
   );
-
-
-
 }
