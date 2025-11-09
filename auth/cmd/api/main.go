@@ -1,3 +1,9 @@
+/*
+Ce fichier est le point d’entrée principal du microservice d’authentification (auth).
+Il initialise les composants internes du service, lance le serveur HTTP,
+
+	et gère un arrêt gracieux (graceful shutdown) lorsque le système reçoit un signal d’interruption
+*/
 package main
 
 import (
@@ -13,19 +19,19 @@ import (
 	"auth/internal/server"
 )
 
+/*
+Cette fonction assure que le serveur s’arrête proprement lorsque le programme reçoit un signal d’arrêt.
+Donne au serveur 5 secondes pour terminer les requêtes en cours avant de forcer l’arrêt.
+*/
 func gracefulShutdown(apiServer *http.Server, done chan bool) {
-	// Create context that listens for the interrupt signal from the OS.
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	// Listen for the interrupt signal.
 	<-ctx.Done()
 
 	log.Println("shutting down gracefully, press Ctrl+C again to force")
-	stop() // Allow Ctrl+C to force shutdown
+	stop()
 
-	// The context is used to inform the server it has 5 seconds to finish
-	// the request it is currently handling
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := apiServer.Shutdown(ctx); err != nil {
@@ -34,18 +40,21 @@ func gracefulShutdown(apiServer *http.Server, done chan bool) {
 
 	log.Println("Server exiting")
 
-	// Notify the main goroutine that the shutdown is complete
 	done <- true
 }
+
+/*
+Initialise le module d’authentification,
+Crée une instance du serveur HTTP configuré
+Lance une goroutine qui surveille les signaux d’arrêt du système.
+*/
 
 func main() {
 	auth.NewAuth()
 	server := server.NewServer()
 
-	// Create a done channel to signal when the shutdown is complete
 	done := make(chan bool, 1)
 
-	// Run graceful shutdown in a separate goroutine
 	go gracefulShutdown(server, done)
 
 	err := server.ListenAndServe()
@@ -53,7 +62,6 @@ func main() {
 		panic(fmt.Sprintf("http server error: %s", err))
 	}
 
-	// Wait for the graceful shutdown to complete
 	<-done
 	log.Println("Graceful shutdown complete.")
 }

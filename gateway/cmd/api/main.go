@@ -1,3 +1,23 @@
+/*
+Ce module implémente une API Gateway en Go.
+Il sert d’intermédiaire sécurisé entre :
+
+le frontend (interface utilisateur React / Next.js),
+
+le service d’authentification (Go),
+
+et le backend applicatif (NestJS : avatars, contrats, etc.).
+
+Il gère :
+
+le reverse proxy des requêtes HTTP,
+
+la gestion des cookies de session,
+
+les en-têtes CORS,
+
+et la redirection OAuth (Google).
+*/
 package main
 
 import (
@@ -26,7 +46,28 @@ func getEnv(key, fallback string) string {
 	return fallback
 }
 
-// --- CORS middleware for all requests ---
+/*
+Un middleware est une fonction qui a accès à l'objet requête (req), à l'objet réponse (res)
+ et à la fonction middleware suivante dans le cycle requête-réponse de l'application.
+ Il peut exécuter du code, modifier les objets requête et réponse,
+  terminer le cycle requête-réponse ou appeler le middleware suivant.
+
+*/
+/*
+Autorise uniquement les requêtes provenant du frontend officiel (FRONTEND_URL, par défaut http://localhost:3000).
+
+Définit les entêtes HTTP :
+
+Access-Control-Allow-Origin
+
+Access-Control-Allow-Methods
+
+Access-Control-Allow-Headers
+
+Access-Control-Allow-Credentials
+
+Gère les requêtes OPTIONS (prévols CORS) pour éviter des erreurs de navigateur.
+*/
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		frontendURL := getEnv("FRONTEND_URL", "http://localhost:3000")
@@ -35,7 +76,6 @@ func corsMiddleware(next http.Handler) http.Handler {
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, Cookie")
 		w.Header().Set("Access-Control-Allow-Credentials", "true")
 
-		// Handle preflight requests
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusOK)
 			return
@@ -45,7 +85,14 @@ func corsMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// Custom proxy handler that ensures CORS headers are preserved
+/*
+Permet de rediriger une requête entrante vers un autre service (comme Auth), tout en :
+
+ajoutant les entêtes X-Forwarded-* (origine, protocole, IP),
+
+supprimant les en-têtes CORS venant du backend pour éviter les conflits avec ceux gérés par la Gateway.
+*/
+
 func createProxyHandler(proxy *httputil.ReverseProxy) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Add X-Forwarded headers so backend knows original request details
@@ -66,7 +113,16 @@ func createProxyHandler(proxy *httputil.ReverseProxy) http.HandlerFunc {
 	}
 }
 
-// Generic backend proxy handler for NestJS endpoints
+/*
+construit dynamiquement l’URL complète du backend à partir du chemin de la requête,
+
+copie les en-têtes HTTP et les cookies (session_token),
+
+exécute la requête vers le service,
+
+renvoie la réponse au client.
+*/
+
 func createBackendProxyHandler(backendServiceURL string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Gateway received request: %s %s", r.Method, r.URL.Path)
@@ -135,6 +191,16 @@ func createBackendProxyHandler(backendServiceURL string) http.HandlerFunc {
 		w.Write(body)
 	}
 }
+
+/*
+Tous les accès frontend → backend passent par cette Gateway.
+
+Les entêtes CORS sont centralisés ici uniquement.
+
+Les cookies de session sont gérés côté Gateway pour unifier l’expérience utilisateur.
+
+Chaque appel est journalisé (log.Printf) pour une traçabilité complète.
+*/
 
 func main() {
 	// Get URLs from environment variables

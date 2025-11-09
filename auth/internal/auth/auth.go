@@ -1,3 +1,7 @@
+/*
+Ce fichier gère la configuration et l’initialisation du système d’authentification OAuth2 via Google.
+*/
+
 package auth
 
 import (
@@ -13,10 +17,19 @@ import (
 )
 
 const (
-	key    = "infernodragon@megaknight"
-	MaxAge = 86400 * 7
-	IsProd = false
+	key    = "infernodragon@megaknight" //clé secrete
+	MaxAge = 86400 * 7                  // durée max du cookie
+	IsProd = false                      // en dévéloppement et non production
 )
+
+/*
+Tente de charger les variables depuis le fichier .env
+Récupère le Client ID et le Client Secret du compte OAuth2 Google.
+Récupère l’URL du gateway
+Crée un cookie store sécurisé pour conserver les sessions des utilisateurs authentifiés.
+Construit l’URL de rappel complète que Google utilisera après l’authentification.
+Les scopes "email" et "profile" permettent de récupérer l’adresse e-mail et le nom de l’utilisateur.
+*/
 
 func NewAuth() {
 	err := godotenv.Load()
@@ -31,7 +44,6 @@ func NewAuth() {
 		log.Fatal("GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be set")
 	}
 
-	// Get gateway URL from environment or use default
 	gatewayURL := os.Getenv("GATEWAY_URL")
 	if gatewayURL == "" {
 		gatewayURL = "http://localhost:8000"
@@ -47,12 +59,7 @@ func NewAuth() {
 	}
 	gothic.Store = store
 
-	// CRITICAL FIX: Full callback URL pointing to gateway
 	callbackURL := gatewayURL + "/auth/google/callback"
-	log.Printf("🔐 Google OAuth Config:")
-	log.Printf("   - Client ID: %s", googleClientId[:20]+"...")
-	log.Printf("   - Callback URL: %s", callbackURL)
-
 	goth.UseProviders(
 		google.New(
 			googleClientId,

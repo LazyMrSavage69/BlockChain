@@ -1,3 +1,7 @@
+/*
+Ce module configure et gère toutes les routes HTTP du service d’authentification
+*/
+
 package server
 
 import (
@@ -19,11 +23,32 @@ import (
 	"github.com/markbates/goth/gothic"
 )
 
+/*
+Elle crée et configure un routeur Chi (github.com/go-chi/chi)
+
+pour définir toutes les routes et middlewares de sécurité
+Le frontend appelle /auth/google.
+
+Le backend redirige vers Google pour la connexion.
+
+Google renvoie un token + infos utilisateur à /auth/google/callback.
+
+Le serveur :
+
+Récupère les infos (email, name, googleID).
+
+Crée ou retrouve l’utilisateur dans la base.
+
+Crée une session locale (token).
+
+Redirige vers le gateway :
+http://localhost:8000/auth/callback?token=xxxxx
+*/
 func (s *Server) RegisterRoutes() http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"http://localhost:8000"}, // Only allow gateway
+		AllowedOrigins:   []string{"http://localhost:8000"}, // autoriser le gateway
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "Cookie"},
 		AllowCredentials: true,
@@ -37,20 +62,17 @@ func (s *Server) RegisterRoutes() http.Handler {
 	r.Get("/auth/{provider}", func(w http.ResponseWriter, r *http.Request) {
 		provider := chi.URLParam(r, "provider")
 
-		// CRITICAL FIX: Gothic uses r.URL to build the callback
-		// When behind a proxy, we need to fix the URL scheme and host
-
-		// Clear any existing gothic session to force fresh OAuth flow
+		//Enlever les sessions gothic existantes pour une flux fraiche de OAuth
 		session, _ := gothic.Store.Get(r, gothic.SessionName)
 		session.Options.MaxAge = -1
 		session.Save(r, w)
 
-		// Check if request came through gateway (proxy)
+		// Verifier si les requests viennt des gateway
 		if r.Header.Get("X-Forwarded-Host") != "" {
 			r.URL.Scheme = "http"
 			r.URL.Host = r.Header.Get("X-Forwarded-Host")
 		} else {
-			// Fallback: manually set to gateway URL
+			// url de gateway
 			r.URL.Scheme = "http"
 			r.URL.Host = "localhost:8000"
 		}
@@ -60,12 +82,12 @@ func (s *Server) RegisterRoutes() http.Handler {
 		log.Printf("🔐 Request Host header: %s", r.Host)
 		log.Printf("🔐 X-Forwarded-Host: %s", r.Header.Get("X-Forwarded-Host"))
 
-		// IMPORTANT: Set the Host header too
+		// header de host
 		r.Host = r.URL.Host
 
 		gothic.BeginAuthHandler(w, r)
 	})
-	r.Get("/auth/{provider}/callback", s.getAuthCallBackFunction)
+	r.Get("/auth/{provider}/callback", s.getAuthCallBackFunction) //Callback apres succés OAuth
 
 	// --- EMAIL/PASSWORD AUTH ROUTES ---
 	r.Post("/auth/register", s.registerHandler)
@@ -94,7 +116,12 @@ func (s *Server) healthHandler(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(jsonResp)
 }
 
-// Google OAuth callback
+/*
+Fonction				Description
+generateSessionToken()	Génère un token hexadécimal aléatoire (32 octets)
+respondWithError()	    Envoie une réponse JSON avec code d’erreur
+respondWithJSON()	    Formate toute réponse en JSON
+*/
 func (s *Server) getAuthCallBackFunction(w http.ResponseWriter, r *http.Request) {
 	provider := chi.URLParam(r, "provider")
 	r = r.WithContext(context.WithValue(r.Context(), "provider", provider))
@@ -128,7 +155,7 @@ func (s *Server) getAuthCallBackFunction(w http.ResponseWriter, r *http.Request)
 		log.Println("Warning: Failed to delete old sessions:", err)
 	}
 
-	expiresAt := "2030-01-01 00:00:00"
+	expiresAt := "2030-01-01 00:00:00" //faut changer dans la production
 	err = s.db.CreateSession(userID, sessionToken, expiresAt)
 	if err != nil {
 		http.Error(w, "Failed to create session", http.StatusInternalServerError)
@@ -161,7 +188,7 @@ type ResendCodeRequest struct {
 	Email string `json:"email"`
 }
 
-// Register new user with email/password
+// enregistrer nouveau user avec email /password
 func (s *Server) registerHandler(w http.ResponseWriter, r *http.Request) {
 	var req RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -169,7 +196,6 @@ func (s *Server) registerHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate input
 	if req.Email == "" || req.Password == "" || req.Name == "" {
 		respondWithError(w, http.StatusBadRequest, "Email, password, and name are required")
 		return
@@ -180,14 +206,12 @@ func (s *Server) registerHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if email already exists
 	existingUser, _ := s.db.FindUserByEmail(req.Email)
 	if existingUser != nil {
 		respondWithError(w, http.StatusConflict, "Email already registered")
 		return
 	}
 
-	// Create user
 	userID, err := s.db.CreateEmailUser(req.Email, req.Password, req.Name)
 	if err != nil {
 		log.Println("Failed to create user:", err)
@@ -195,7 +219,6 @@ func (s *Server) registerHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Generate and send verification code
 	code := database.GenerateVerificationCode()
 	expiresAt := time.Now().Add(10 * time.Minute)
 
@@ -206,7 +229,6 @@ func (s *Server) registerHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Send email
 	emailService := database.NewEmailService()
 	err = emailService.SendVerificationEmail(req.Email, code)
 	if err != nil {
@@ -221,7 +243,7 @@ func (s *Server) registerHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// Verify email with code
+// verification email avec code
 func (s *Server) verifyEmailHandler(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Email string `json:"email"`
@@ -238,7 +260,6 @@ func (s *Server) verifyEmailHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Verify the code (this also marks it as used)
 	valid, err := s.db.VerifyCode(req.Email, req.Code)
 	if err != nil {
 		log.Println("Error verifying code:", err)
@@ -251,7 +272,7 @@ func (s *Server) verifyEmailHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Mark email as verified
+	// Marker email comme vérifier
 	err = s.db.MarkUserAsVerified(req.Email)
 	if err != nil {
 		log.Println("Failed to verify email:", err)
@@ -264,7 +285,7 @@ func (s *Server) verifyEmailHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// Login with email/password
+// Connexion avec email et mdp
 func (s *Server) loginHandler(w http.ResponseWriter, r *http.Request) {
 	var req LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -272,14 +293,13 @@ func (s *Server) loginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("Login attempt for email: %s", req.Email) // Debug log
+	log.Printf("Login attempt for email: %s", req.Email)
 
 	if req.Email == "" || req.Password == "" {
 		respondWithError(w, http.StatusBadRequest, "Email and password are required")
 		return
 	}
 
-	// Find user
 	user, err := s.db.FindUserByEmail(req.Email)
 	if err != nil {
 		log.Printf("FindUserByEmail error: %v", err) // Debug log
@@ -289,13 +309,11 @@ func (s *Server) loginHandler(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("User found: ID=%d, Email=%s, IsVerified=%v", user.ID, user.Email, user.IsVerified) // Debug log
 
-	// Check if user registered with Google
 	if user.GoogleID.Valid && user.GoogleID.String != "" {
 		respondWithError(w, http.StatusBadRequest, "This email is registered with Google. Please use Google sign-in.")
 		return
 	}
 
-	// Verify password
 	if !user.Password.Valid || !s.db.VerifyPassword(user.Password.String, req.Password) {
 		log.Println("Password verification failed") // Debug log
 		respondWithError(w, http.StatusUnauthorized, "Invalid email or password")
@@ -304,7 +322,6 @@ func (s *Server) loginHandler(w http.ResponseWriter, r *http.Request) {
 
 	log.Println("Password verified successfully") // Debug log
 
-	// Check if email is verified
 	if !user.IsVerified {
 		log.Println("Email not verified") // Debug log
 		respondWithError(w, http.StatusForbidden, "Please verify your email before logging in")
@@ -340,7 +357,7 @@ func (s *Server) loginHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// Resend verification code
+// Reenvoyer le code de verification
 func (s *Server) resendCodeHandler(w http.ResponseWriter, r *http.Request) {
 	var req ResendCodeRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -353,23 +370,19 @@ func (s *Server) resendCodeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if user exists
 	user, err := s.db.FindUserByEmail(req.Email)
 	if err != nil {
 		respondWithError(w, http.StatusNotFound, "User not found")
 		return
 	}
 
-	// Check if already verified
 	if user.GoogleID.Valid && user.GoogleID.String == "1" {
 		respondWithError(w, http.StatusBadRequest, "Email already verified")
 		return
 	}
 
-	// Delete old codes
 	s.db.DeleteOldVerificationCodes(req.Email)
 
-	// Generate new code
 	code := database.GenerateVerificationCode()
 	expiresAt := time.Now().Add(10 * time.Minute)
 
@@ -380,7 +393,6 @@ func (s *Server) resendCodeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Send email
 	emailService := database.NewEmailService()
 	err = emailService.SendVerificationEmail(req.Email, code)
 	if err != nil {
@@ -394,7 +406,6 @@ func (s *Server) resendCodeHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// Get current user from session
 func (s *Server) getCurrentUser(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie("session_token")
 	if err != nil {
@@ -422,7 +433,6 @@ func (s *Server) getCurrentUser(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// Logout handler
 func (s *Server) logoutHandler(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie("session_token")
 	if err != nil {
@@ -440,8 +450,6 @@ func (s *Server) logoutHandler(w http.ResponseWriter, r *http.Request) {
 		"message": "Logged out successfully",
 	})
 }
-
-// ===== HELPER FUNCTIONS =====
 
 func generateSessionToken() string {
 	b := make([]byte, 32)
