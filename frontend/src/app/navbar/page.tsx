@@ -30,6 +30,7 @@ export default function Navbar({ user, onLogout }: NavbarProps) {
     { name: "User Info", href: "/users" },
     { name: "MarketPlace", href: "/marketplace" },
     { name: "Contracts", href: "/contractspage" },
+    { name: "Subscription", href: "/subscription" }
   ];
 
   const activeLinks = user ? loggedLinks : notLoggedLinks;

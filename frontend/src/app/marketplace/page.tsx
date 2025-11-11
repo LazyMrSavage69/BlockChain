@@ -28,7 +28,6 @@ interface ContractModalProps {
   onModify: (template: ContractTemplate) => void;
 }
 
-// Mock data - optimized as const
 const mockTemplates: ContractTemplate[] = [
   {
     id: '1',
