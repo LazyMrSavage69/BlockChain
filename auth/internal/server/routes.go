@@ -101,6 +101,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 	r.Post("/auth/logout", s.logoutHandler)
 	r.Get("/api/me", s.getCurrentUser)
 	r.Get("/api/users/search", s.searchUsersHandler)
+	r.Get("/api/users/{id}", s.getUserByIdHandler)
 
 	return r
 }
@@ -464,6 +465,33 @@ func (s *Server) searchUsersHandler(w http.ResponseWriter, r *http.Request) {
 
 	respondWithJSON(w, http.StatusOK, map[string]interface{}{
 		"users": users,
+	})
+}
+
+func (s *Server) getUserByIdHandler(w http.ResponseWriter, r *http.Request) {
+	userIDStr := chi.URLParam(r, "id")
+	userID, err := strconv.Atoi(userIDStr)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid user ID")
+		return
+	}
+
+	user, err := s.db.GetUserByID(userID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			respondWithError(w, http.StatusNotFound, "User not found")
+			return
+		}
+		log.Printf("getUserByIdHandler error: %v", err)
+		respondWithError(w, http.StatusInternalServerError, "Failed to fetch user")
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, map[string]interface{}{
+		"id":     user.ID,
+		"email":  user.Email,
+		"name":   user.Name,
+		"avatar": user.AvatarURL,
 	})
 }
 

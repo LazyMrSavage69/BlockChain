@@ -359,7 +359,7 @@ func (s Service) DeleteUserSessions(userID int) error {
 }
 
 // Récupère l’utilisateur à partir d’un token de session valide
-// Vérifie que la session n’est pas expirée
+// Vérifie que la session n'est pas expirée
 func (s Service) GetUserBySessionToken(token string) (*User, error) {
 	query := `
 		SELECT u.id, u.google_id, u.email, u.name, u.picture
@@ -395,6 +395,39 @@ func (s Service) GetUserBySessionToken(token string) (*User, error) {
 	}
 
 	log.Printf("GetUserBySessionToken: User found: ID=%d, Email=%s", user.ID, user.Email)
+	return &user, nil
+}
+
+// Récupère un utilisateur par son ID
+func (s Service) GetUserByID(userID int) (*User, error) {
+	query := `SELECT id, google_id, email, name, picture, verified FROM users WHERE id = ?`
+	var user User
+	var googleID sql.NullString
+	var name sql.NullString
+	var picture sql.NullString
+
+	err := s.DB.QueryRow(query, userID).Scan(
+		&user.ID,
+		&googleID,
+		&user.Email,
+		&name,
+		&picture,
+		&user.IsVerified,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	user.GoogleID = googleID
+
+	if name.Valid {
+		user.Name = name.String
+	}
+	if picture.Valid {
+		user.AvatarURL = picture.String
+	}
+
 	return &user, nil
 }
 

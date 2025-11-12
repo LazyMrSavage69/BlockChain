@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"io"
 	"log"
@@ -74,15 +75,36 @@ func createBackendProxyHandler(backendServiceURL string) http.HandlerFunc {
 			backendURL += "?" + r.URL.RawQuery
 		}
 
-		req, err := http.NewRequest(r.Method, backendURL, r.Body)
+		// Read the body to preserve it
+		bodyBytes, err := io.ReadAll(r.Body)
+		if err != nil {
+			log.Printf("Failed to read request body: %v", err)
+			http.Error(w, "Failed to read request body", http.StatusInternalServerError)
+			return
+		}
+		r.Body.Close()
+
+		// Create new request with the body
+		req, err := http.NewRequest(r.Method, backendURL, bytes.NewReader(bodyBytes))
 		if err != nil {
 			log.Printf("Failed to create request: %v", err)
 			http.Error(w, "Failed to create request", http.StatusInternalServerError)
 			return
 		}
+		
+		// Set Content-Length header
+		req.ContentLength = int64(len(bodyBytes))
+		
+		// Ensure Content-Type is set
+		if r.Header.Get("Content-Type") == "" {
+			req.Header.Set("Content-Type", "application/json")
+		}
 
-		// Copy headers
+		// Copy headers (but don't overwrite Content-Type if we just set it)
 		for name, values := range r.Header {
+			if name == "Content-Type" && req.Header.Get("Content-Type") != "" {
+				continue
+			}
 			for _, value := range values {
 				req.Header.Add(name, value)
 			}
@@ -338,6 +360,14 @@ func main() {
 	// --- CONTRACTS SERVICE (NestJS) ---
 	mux.HandleFunc("/contracts", createBackendProxyHandler(backendServiceURL))
 	mux.HandleFunc("/contracts/", createBackendProxyHandler(backendServiceURL))
+
+	// --- FRIENDS SERVICE (NestJS) ---
+	mux.HandleFunc("/friends", createBackendProxyHandler(backendServiceURL))
+	mux.HandleFunc("/friends/", createBackendProxyHandler(backendServiceURL))
+
+	// --- MESSAGES SERVICE (NestJS) ---
+	mux.HandleFunc("/messages", createBackendProxyHandler(backendServiceURL))
+	mux.HandleFunc("/messages/", createBackendProxyHandler(backendServiceURL))
 
 	handler := corsMiddleware(mux)
 

@@ -20,8 +20,11 @@ async function bootstrap() {
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
-      forbidNonWhitelisted: true,
+      forbidNonWhitelisted: false, // Changed to false to allow extra fields like userId
       transform: true,
+      transformOptions: {
+        enableImplicitConversion: true, // Convert string numbers to numbers
+      },
     }),
   );
 

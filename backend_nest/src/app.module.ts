@@ -4,7 +4,9 @@ import { AvatarModule } from './avatar/avatar.module';
 import { ContractsController } from './contracts/contracts.controller';
 import { ContractsService } from './contracts/contracts.service';
 import { ContractsModule } from './contracts/contracts.module';
-import { SubscriptionModule } from './subscription/subscription.module'; 
+import { SubscriptionModule } from './subscription/subscription.module';
+import { FriendsModule } from './friends/friends.module';
+import { MessagesModule } from './messages/messages.module';
 
 @Module({
   imports: [
@@ -13,7 +15,9 @@ import { SubscriptionModule } from './subscription/subscription.module';
     }),
     AvatarModule,
     ContractsModule,
-    SubscriptionModule, 
+    SubscriptionModule,
+    FriendsModule,
+    MessagesModule,
   ],
   controllers: [ContractsController],
   providers: [ContractsService],
