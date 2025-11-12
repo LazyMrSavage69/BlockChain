@@ -13,6 +13,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"auth/internal/database"
@@ -98,6 +100,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 	// --- COMMON ROUTES ---
 	r.Post("/auth/logout", s.logoutHandler)
 	r.Get("/api/me", s.getCurrentUser)
+	r.Get("/api/users/search", s.searchUsersHandler)
 
 	return r
 }
@@ -430,6 +433,37 @@ func (s *Server) getCurrentUser(w http.ResponseWriter, r *http.Request) {
 		"email":  user.Email,
 		"name":   user.Name,
 		"avatar": user.AvatarURL,
+	})
+}
+
+func (s *Server) searchUsersHandler(w http.ResponseWriter, r *http.Request) {
+	query := strings.TrimSpace(r.URL.Query().Get("query"))
+	if query == "" {
+		respondWithJSON(w, http.StatusOK, map[string]interface{}{
+			"users": []database.PublicUser{},
+		})
+		return
+	}
+
+	limit := 5
+	if limitParam := r.URL.Query().Get("limit"); limitParam != "" {
+		if parsed, err := strconv.Atoi(limitParam); err == nil && parsed > 0 {
+			if parsed > 20 {
+				parsed = 20
+			}
+			limit = parsed
+		}
+	}
+
+	users, err := s.db.SearchUsers(query, limit)
+	if err != nil {
+		log.Printf("searchUsersHandler error: %v", err)
+		respondWithError(w, http.StatusInternalServerError, "Failed to search users")
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, map[string]interface{}{
+		"users": users,
 	})
 }
 

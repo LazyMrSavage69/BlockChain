@@ -40,6 +40,13 @@ type User struct {
 	CreatedAt  time.Time
 }
 
+type PublicUser struct {
+	ID        int64  `json:"id"`
+	Name      string `json:"name"`
+	Email     string `json:"email"`
+	AvatarURL string `json:"avatar"`
+}
+
 /*
 Crée une connexion à MySQL et retourne un Service connecté.
 Construction du DSN
@@ -156,6 +163,65 @@ func (s Service) FindUserByEmail(email string) (*User, error) {
 	return &user, nil
 }
 
+func (s Service) SearchUsers(query string, limit int) ([]PublicUser, error) {
+	if limit <= 0 {
+		limit = 5
+	}
+
+	searchTerm := fmt.Sprintf("%%%s%%", query)
+
+	rows, err := s.DB.Query(
+		`SELECT id, name, email, picture
+		 FROM users
+		 WHERE name LIKE ? OR email LIKE ?
+		 ORDER BY name ASC
+		 LIMIT ?`,
+		searchTerm, searchTerm, limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []PublicUser
+
+	for rows.Next() {
+		var (
+			id      int64
+			name    sql.NullString
+			email   string
+			picture sql.NullString
+		)
+
+		if err := rows.Scan(&id, &name, &email, &picture); err != nil {
+			return nil, err
+		}
+
+		user := PublicUser{
+			ID:    id,
+			Email: email,
+		}
+
+		if name.Valid {
+			user.Name = name.String
+		} else {
+			user.Name = email
+		}
+
+		if picture.Valid {
+			user.AvatarURL = picture.String
+		}
+
+		results = append(results, user)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return results, nil
+}
+
 /*
 Crée un utilisateur classique (email + mot de passe) :
 Hash du mot de passe avec bcrypt.
@@ -191,7 +257,7 @@ $2b$12$s5nS5JYMSNCKGpU7M5k/7uB5V5e5V5e5V5e5V5e5V5e5V5e5V5e
 	|  |         +--- Salt (22 chars)
 	|  +--- Coût (4-31)
 	+--- Version (2a, 2b, 2y)
-	
+
 	La fonction CompareHashAndPassword :
 	    // Étape 1: Extraire le salt du hash stocké
 	    // Étape 2: Extraire le coût (cost factor)

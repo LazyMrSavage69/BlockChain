@@ -54,7 +54,7 @@ export default function Login(){
       if (response.ok && data.success) {
         if (data.hasAvatar) {
           // User has avatar, go to contracts
-          router.push('/contracts');
+          router.push('/contractspage');
         } else {
           // User doesn't have avatar, go to avatar creator
           router.push('/avatar');

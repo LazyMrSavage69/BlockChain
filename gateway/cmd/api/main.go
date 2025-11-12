@@ -266,17 +266,18 @@ func main() {
 		w.Write(body)
 	})
 
+	// --- USER SEARCH (Auth/Go - MySQL) ---
+	// Must be before generic /api/ route
+	mux.HandleFunc("/api/users/search", createProxyHandler(authProxy))
+
 	// --- SUBSCRIPTIONS SERVICE (NestJS) ---
 	// Important: register before generic /api/ so they are not captured by Auth
 	mux.HandleFunc("/api/subscriptions/webhook", createBackendProxyHandler(backendServiceURL))
 	mux.HandleFunc("/api/subscriptions/checkout", createBackendProxyHandler(backendServiceURL))
 	mux.HandleFunc("/api/subscriptions/", createBackendProxyHandler(backendServiceURL))
 
-	// --- GENERIC /api/ to Auth (keep after subscription routes) ---
-	mux.HandleFunc("/api/", createProxyHandler(authProxy))
-
 	// --- AVATAR SERVICE (NestJS) ---
-	mux.HandleFunc("/api/avatars", func(w http.ResponseWriter, r *http.Request) {
+	avatarHandler := func(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Gateway received request: %s %s", r.Method, r.URL.Path)
 
 		cookie, err := r.Cookie("session_token")
@@ -327,7 +328,12 @@ func main() {
 
 		w.WriteHeader(resp.StatusCode)
 		w.Write(body)
-	})
+	}
+	mux.HandleFunc("/api/avatars", avatarHandler)
+	mux.HandleFunc("/api/avatars/", avatarHandler)
+
+	// --- GENERIC /api/ to Auth (keep after specific service routes) ---
+	mux.HandleFunc("/api/", createProxyHandler(authProxy))
 
 	// --- CONTRACTS SERVICE (NestJS) ---
 	mux.HandleFunc("/contracts", createBackendProxyHandler(backendServiceURL))
@@ -337,14 +343,12 @@ func main() {
 
 	log.Printf("✅ Gateway running on :%s", port)
 	log.Printf("📋 Routes configured:")
-	log.Printf("   - /auth/*")
-	log.Printf("   - /api/me")
-	log.Printf("   - /api/subscriptions/*")
-	log.Printf("   - /api/avatars")
-	log.Printf("   - /contracts")
-	log.Printf("   - /contracts/:id")
+	log.Printf("   - /auth/* (Auth/Go)")
+	log.Printf("   - /api/me (Auth/Go)")
+	log.Printf("   - /api/users/search (Auth/Go)")
+	log.Printf("   - /api/subscriptions/* (NestJS)")
+	log.Printf("   - /api/avatars (NestJS)")
+	log.Printf("   - /contracts/* (NestJS)")
 
 	log.Fatal(http.ListenAndServe(":"+port, handler))
 }
-
-
