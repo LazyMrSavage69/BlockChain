@@ -43,7 +43,7 @@ type User struct {
 type PublicUser struct {
 	ID        int64  `json:"id"`
 	Name      string `json:"name"`
-	Email     string `json:"email"`
+	Email     string `json:"email,omitempty"` // Email omis pour la recherche publique
 	AvatarURL string `json:"avatar"`
 }
 
@@ -198,14 +198,14 @@ func (s Service) SearchUsers(query string, limit int) ([]PublicUser, error) {
 		}
 
 		user := PublicUser{
-			ID:    id,
-			Email: email,
+			ID: id,
+			// Email omis pour la recherche publique (privacy)
 		}
 
 		if name.Valid {
 			user.Name = name.String
 		} else {
-			user.Name = email
+			user.Name = email // Utiliser email comme nom si pas de nom, mais ne pas exposer l'email
 		}
 
 		if picture.Valid {

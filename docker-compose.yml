@@ -82,6 +82,8 @@ services:
     environment:
       NEXT_PUBLIC_API_URL: "http://localhost:8000"
       API_URL: "http://gateway:8000"
+      NEXT_PUBLIC_SUPABASE_URL: "https://nyntdivguybkjyqwirvi.supabase.co"
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im55bnRkaXZndXlia2p5cXdpcnZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA4Nzk0NDAsImV4cCI6MjA3NjQ1NTQ0MH0.1sbn5zoTG3Lb4bsLWG8X7Mzxc321793zVxqDPwZgFaU"
     depends_on:
       - gateway
     networks:

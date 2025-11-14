@@ -1,12 +1,59 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Navbar from './navbar/page'; // Import the Navbar component
 
 // Hero Section Component
 function HeroSection() {
   const router = useRouter();
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [isMuted, setIsMuted] = useState(true);
+  const [showUnmuteButton, setShowUnmuteButton] = useState(false);
+
+  useEffect(() => {
+    // Try to play video with sound first
+    if (videoRef.current) {
+      videoRef.current.muted = false;
+      videoRef.current.play()
+        .then(() => {
+          // Successfully playing with sound
+          setIsMuted(false);
+          setShowUnmuteButton(false);
+        })
+        .catch((error) => {
+          // If autoplay with sound fails, play muted
+          console.log('Autoplay with sound prevented, playing muted:', error);
+          if (videoRef.current) {
+            videoRef.current.muted = true;
+            videoRef.current.play()
+              .then(() => {
+                setIsMuted(true);
+                setShowUnmuteButton(true);
+              })
+              .catch((err) => {
+                console.log('Video autoplay failed:', err);
+              });
+          }
+        });
+    }
+  }, []);
+
+  const handleUnmute = () => {
+    if (videoRef.current) {
+      videoRef.current.muted = false;
+      setIsMuted(false);
+      setShowUnmuteButton(false);
+    }
+  };
+
+  const handleMuteToggle = () => {
+    if (videoRef.current) {
+      videoRef.current.muted = !videoRef.current.muted;
+      setIsMuted(videoRef.current.muted);
+    }
+  };
+
   return (
 
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-indigo-950 via-purple-900 to-indigo-950 px-4">
@@ -37,29 +84,55 @@ function HeroSection() {
           </div>
         </div>
 
-        {/* Smart Contract Illustration */}
+        {/* Video Section */}
         <div className="flex justify-center">
-          <div className="relative w-full max-w-md h-96">
-            <div className="absolute inset-0 bg-gradient-to-tr from-purple-500 to-indigo-500 rounded-full opacity-30 blur-2xl animate-pulse"></div>
-            <svg className="relative z-10 w-full h-full" viewBox="0 0 400 400" fill="none" xmlns="http://www.w3.org/2000/svg">
-              {/* Smart contract document icon */}
-              <rect x="100" y="80" width="200" height="240" rx="10" fill="url(#gradient1)" />
-              <line x1="130" y1="120" x2="270" y2="120" stroke="white" strokeWidth="3" />
-              <line x1="130" y1="150" x2="270" y2="150" stroke="white" strokeWidth="3" />
-              <line x1="130" y1="180" x2="220" y2="180" stroke="white" strokeWidth="3" />
-              {/* Blockchain nodes */}
-              <circle cx="200" cy="280" r="20" fill="#8b5cf6" />
-              <circle cx="150" cy="320" r="15" fill="#6366f1" />
-              <circle cx="250" cy="320" r="15" fill="#6366f1" />
-              <line x1="200" y1="300" x2="150" y2="305" stroke="#a855f7" strokeWidth="2" />
-              <line x1="200" y1="300" x2="250" y2="305" stroke="#a855f7" strokeWidth="2" />
-              <defs>
-                <linearGradient id="gradient1" x1="100" y1="80" x2="300" y2="320">
-                  <stop offset="0%" stopColor="#a855f7" />
-                  <stop offset="100%" stopColor="#6366f1" />
-                </linearGradient>
-              </defs>
-            </svg>
+          <div className="relative w-full max-w-md h-96 rounded-2xl overflow-hidden border border-purple-500/30 shadow-2xl">
+            {/* Gradient overlay for better text visibility if needed */}
+            <div className="absolute inset-0 bg-gradient-to-tr from-purple-500/20 to-indigo-500/20 pointer-events-none z-10"></div>
+            
+            {/* Video Element */}
+            <video
+              ref={videoRef}
+              className="w-full h-full object-cover"
+              loop
+              playsInline
+              preload="auto"
+            >
+              <source src="/HomePageVideo.mp4" type="video/mp4" />
+              Your browser does not support the video tag.
+            </video>
+
+            {/* Unmute Button - Shows when video is muted due to autoplay restrictions */}
+            {showUnmuteButton && (
+              <button
+                onClick={handleUnmute}
+                className="absolute bottom-4 right-4 z-20 bg-purple-600/90 hover:bg-purple-700/90 text-white p-3 rounded-full transition-all shadow-lg backdrop-blur-sm"
+                aria-label="Activer le son"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                </svg>
+              </button>
+            )}
+
+            {/* Mute/Unmute Toggle Button - Always visible for user control */}
+            <button
+              onClick={handleMuteToggle}
+              className="absolute bottom-4 right-4 z-20 bg-purple-600/90 hover:bg-purple-700/90 text-white p-3 rounded-full transition-all shadow-lg backdrop-blur-sm"
+              aria-label={isMuted ? "Activer le son" : "Désactiver le son"}
+              style={{ display: showUnmuteButton ? 'none' : 'block' }}
+            >
+              {isMuted ? (
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+                </svg>
+              ) : (
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                </svg>
+              )}
+            </button>
           </div>
         </div>
       </div>
@@ -607,7 +680,7 @@ function Footer() {
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
           {/* Company Info */}
           <div>
-            <h3 className="text-white font-bold text-xl mb-4">SmartContract.io</h3>
+            <h3 className="text-white font-bold text-xl mb-4">Ethéré.io</h3>
             <p className="text-purple-200 text-sm">
               Revolutionizing how contracts are created, signed, and executed on the blockchain.
             </p>
@@ -655,7 +728,7 @@ function Footer() {
         {/* Social Links & Copyright */}
         <div className="border-t border-purple-800 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-purple-300 text-sm">
-            Copyright © 2025 SmartContract.io. All Rights Reserved
+            Copyright © 2025 Ethéré.io. All Rights Reserved
           </p>
           <div className="flex gap-4">
             <a href="#" className="w-10 h-10 bg-purple-800 rounded-full flex items-center justify-center hover:bg-purple-700 transition-all" aria-label="Twitter">

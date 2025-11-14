@@ -1,5 +1,6 @@
 export interface SignedContract {
   id: string;
+  contract_id?: string | null; // Référence vers contracts.id
   initiator_id: number;
   counterparty_id: number;
   title: string;
@@ -13,6 +14,7 @@ export interface SignedContract {
   initiator_agreed: boolean;
   counterparty_agreed: boolean;
   status: string;
+  blockchain_hash?: string | null;
   created_at: string;
   updated_at: string;
 }

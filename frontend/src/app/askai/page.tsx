@@ -24,7 +24,7 @@ interface GeneratedContract {
 }
 
 const DEFAULT_CONTRACT: GeneratedContract = {
-  title: "Contrat généré par Gemini",
+  title: "Contrat généré par l'IA",
   summary:
     "Aucun contrat n’a encore été généré. Complétez le formulaire pour créer un projet de contrat intelligent.",
   clauses: [],
@@ -407,15 +407,15 @@ export default function AskAiPage() {
           <section className="bg-indigo-900/70 border border-purple-500/30 rounded-2xl shadow-2xl p-8">
             <header className="flex items-center justify-between pb-6 border-b border-purple-500/20">
               <div>
-                <h1 className="text-3xl md:text-4xl font-bold text-white">Assistant Gemini pour contrats intelligents</h1>
+                <h1 className="text-3xl md:text-4xl font-bold text-white">Assistant AI pour contrats intelligents</h1>
                 <p className="text-purple-200 mt-2">
-                  Décrivez votre accord et laissez Gemini générer un projet de contrat que vous pourrez relire et faire
+                  Décrivez votre accord et laissez l'IA générer un projet de contrat que vous pourrez relire et faire
                   co-signer.
                 </p>
               </div>
               <img
                 src="/logo.svg"
-                alt="SmartContract AI"
+                alt="Ethéré AI"
                 className="hidden md:block w-20 h-20 opacity-80"
               />
             </header>
@@ -595,7 +595,7 @@ export default function AskAiPage() {
               <div>
                 <h2 className="text-2xl font-semibold text-white">Projet de contrat</h2>
                 <p className="text-purple-200">
-                  Révisez attentivement le contrat généré par Gemini. Validez les clauses avant de solliciter la
+                  Révisez attentivement le contrat généré par l'IA. Validez les clauses avant de solliciter la
                   signature de la contrepartie.
                 </p>
               </div>
@@ -647,7 +647,7 @@ export default function AskAiPage() {
               {contract.rawText && (
                 <details className="rounded-lg border border-purple-500/20 bg-indigo-950/40 p-4 text-purple-200">
                   <summary className="cursor-pointer font-semibold text-purple-100">
-                    Voir la réponse textuelle complète de Gemini
+                    Voir la réponse textuelle complète de l'IA
                   </summary>
                   <pre className="mt-3 whitespace-pre-wrap text-sm">{contract.rawText}</pre>
                 </details>
@@ -707,7 +707,6 @@ export default function AskAiPage() {
                     <p className="text-purple-100 font-semibold">
                       Invité : {counterpartyResult.name}
                     </p>
-                    <p className="text-purple-200 text-sm">{counterpartyResult.email}</p>
 
                     <label className="flex items-center gap-3 text-purple-100 mt-3">
                       <input

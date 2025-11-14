@@ -1,6 +1,8 @@
-import { Body, Controller, Get, Param, Post, Query, Req } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Put, Query, Req, NotFoundException } from '@nestjs/common';
 import { ContractsService } from './contracts.service';
 import { CreateSignedContractDto } from './dto/create-signed-contract.dto';
+import { UpdateContractDto } from './dto/update-contract.dto';
+import { AcceptContractDto } from './dto/accept-contract.dto';
 import { SubscriptionService } from '../subscription/subscription.service';
 import express from 'express';
 
@@ -18,7 +20,15 @@ export class ContractsController {
 
   @Get(':id')
   async getById(@Param('id') id: string) {
-    return this.contractsService.findOne(id);
+    console.log(`[ContractsController] Getting contract with id: ${id}`);
+    try {
+      const contract = await this.contractsService.getContractById(id);
+      console.log(`[ContractsController] Found contract: ${contract.id}`);
+      return contract;
+    } catch (error: any) {
+      console.log(`[ContractsController] Contract not found: ${error.message}`);
+      throw new NotFoundException(`Contract with id ${id} not found`);
+    }
   }
 
   @Get('user/:userId')
@@ -68,6 +78,31 @@ export class ContractsController {
     return {
       success: true,
       data: contract,
+    };
+  }
+
+  @Put(':id/update')
+  async updateContract(
+    @Param('id') id: string,
+    @Body() updateDto: UpdateContractDto,
+  ) {
+    const contract = await this.contractsService.updateContract(id, updateDto);
+    return {
+      success: true,
+      data: contract,
+    };
+  }
+
+  @Post(':id/accept')
+  async acceptContract(
+    @Param('id') id: string,
+    @Body() acceptDto: AcceptContractDto,
+  ) {
+    const contract = await this.contractsService.acceptContract(id, acceptDto.userId);
+    return {
+      success: true,
+      data: contract,
+      isSigned: contract.status === 'fully_signed' || 'contract_id' in contract,
     };
   }
 }

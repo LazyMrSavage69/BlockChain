@@ -101,6 +101,14 @@ COMMENT ON COLUMN messages.read_at IS 'Timestamp de lecture du message (NULL si 
 ALTER TABLE friend_invitations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 
+-- RLS for signed_contracts (if enabled, allow all operations for now)
+-- Note: Backend service uses SERVICE_ROLE_KEY to bypass RLS
+-- If RLS is enabled, add policies:
+-- ALTER TABLE signed_contracts ENABLE ROW LEVEL SECURITY;
+-- CREATE POLICY "Allow all operations on signed_contracts" ON signed_contracts FOR ALL USING (true) WITH CHECK (true);
+-- OR disable RLS for this table (recommended for backend service):
+ALTER TABLE signed_contracts DISABLE ROW LEVEL SECURITY;
+
 -- RLS Policies for friend_invitations
 -- Allow users to insert invitations they send
 CREATE POLICY "Users can insert invitations they send"

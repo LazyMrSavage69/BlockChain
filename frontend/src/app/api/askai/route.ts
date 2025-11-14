@@ -15,19 +15,20 @@ interface AskAiPayload {
   requesterEmail?: string;
 }
 
-// ✅ Utilisez gemini-2.5-flash (meilleur pour votre cas)
-const GEMINI_MODEL = process.env.GEMINI_MODEL_ID || "gemini-2.5-flash";
-// ✅ API v1 au lieu de v1beta
-const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1/models/${GEMINI_MODEL}:generateContent`;
+// ✅ Utilisez AIML API avec un modèle puissant (Claude, GPT, ou Gemini via AIML)
+// Modèles valides: claude-3-7-sonnet-20250219, claude-sonnet-4-5-20250929, gpt-4o, gemini-2.5-flash, etc.
+const AI_MODEL = process.env.AI_MODEL_ID || "anthropic/claude-3.7-sonnet"; // Modèle Claude récent et puissant
+// ✅ AIML API utilise une structure compatible OpenAI
+const AIML_API_ENDPOINT = "https://api.aimlapi.com/v1/chat/completions";
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.AI_API_KEY;
 
   if (!apiKey) {
     return NextResponse.json(
       {
         error:
-          "Clé GEMINI_API_KEY manquante. Ajoutez-la dans .env.local ou .env.production (côté frontend).",
+          "Clé AI_API_KEY manquante. Ajoutez-la dans .env.local ou .env.production (côté frontend).",
       },
       { status: 500 },
     );
@@ -115,52 +116,101 @@ ${duration}
 Le contrat doit être exploitable pour une implémentation en smart contract (Solidity/Rust).
 Génère un contrat professionnel, détaillé et juridiquement solide.`;
 
-  try {
-    const geminiResponse = await fetch(`${GEMINI_ENDPOINT}?key=${apiKey}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              { text: systemInstruction },
-              { text: userPrompt },
-            ],
-          },
-        ],
-        generationConfig: {
-          temperature: 0.7,
-          topP: 0.95,
-          topK: 64,
-          maxOutputTokens: 8192,
-        },
-      }),
-    });
+  // Helper function to make fetch with retry and timeout
+  const fetchWithRetry = async (
+    url: string,
+    options: RequestInit,
+    maxRetries = 3,
+    timeout = 60000
+  ): Promise<Response> => {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-    if (!geminiResponse.ok) {
-      const errorText = await geminiResponse.text();
-      console.error("Erreur Gemini:", geminiResponse.status, errorText);
+        const response = await fetch(url, {
+          ...options,
+          signal: controller.signal,
+          // Add keepalive and other options for better connection handling
+          keepalive: true,
+        });
+
+        clearTimeout(timeoutId);
+        return response;
+      } catch (error: any) {
+        const isLastAttempt = attempt === maxRetries;
+        const isTimeout = error.name === 'AbortError';
+        const isConnectionError = 
+          error.code === 'ECONNRESET' || 
+          error.code === 'ETIMEDOUT' ||
+          error.message?.includes('fetch failed') ||
+          error.message?.includes('socket disconnected');
+
+        console.error(`Tentative ${attempt}/${maxRetries} échouée:`, error.message || error);
+
+        if (isLastAttempt) {
+          throw error;
+        }
+
+        // Exponential backoff: wait longer between retries
+        const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
+        console.log(`Nouvelle tentative dans ${delay}ms...`);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
+    throw new Error('Toutes les tentatives ont échoué');
+  };
+
+  try {
+    const aiResponse = await fetchWithRetry(
+      AIML_API_ENDPOINT,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`,
+          "User-Agent": "Ethéré-Platform/1.0",
+        },
+        body: JSON.stringify({
+          model: AI_MODEL,
+          messages: [
+            {
+              role: "system",
+              content: systemInstruction,
+            },
+            {
+              role: "user",
+              content: userPrompt,
+            },
+          ],
+          temperature: 0.7,
+          max_tokens: 8192,
+        }),
+      },
+      3, // maxRetries
+      90000 // timeout: 90 seconds
+    );
+
+    if (!aiResponse.ok) {
+      const errorText = await aiResponse.text();
+      console.error("Erreur AIML API:", aiResponse.status, errorText);
       return NextResponse.json(
         {
-          error: "La génération du contrat a échoué côté Gemini.",
+          error: "La génération du contrat a échoué côté AI.",
           details: errorText,
         },
-        { status: geminiResponse.status },
+        { status: aiResponse.status },
       );
     }
 
-    const data = await geminiResponse.json();
+    const data = await aiResponse.json();
 
-    const candidateText =
-      data?.candidates?.[0]?.content?.parts?.[0]?.text ??
-      data?.candidates?.[0]?.output ??
-      "";
+    // AIML API utilise la structure OpenAI: choices[0].message.content
+    const candidateText = data?.choices?.[0]?.message?.content ?? "";
 
     if (!candidateText) {
       return NextResponse.json(
-        { error: "Réponse vide de Gemini. Réessayez avec plus de contexte." },
+        { error: "Réponse vide de l'API AI. Réessayez avec plus de contexte." },
         { status: 422 },
       );
     }
@@ -186,7 +236,7 @@ Génère un contrat professionnel, détaillé et juridiquement solide.`;
         throw new Error("Structure JSON invalide");
       }
     } catch (parseError) {
-      console.warn("Impossible de parser le JSON Gemini:", parseError);
+      console.warn("Impossible de parser le JSON AI:", parseError);
       console.warn("Texte reçu:", candidateText);
 
       contractPayload = {
@@ -208,11 +258,33 @@ Génère un contrat professionnel, détaillé et juridiquement solide.`;
 
     return NextResponse.json({ contract: contractPayload });
   } catch (error: unknown) {
-    console.error("Erreur lors de l'appel Gemini:", error);
+    console.error("Erreur lors de l'appel AIML API:", error);
+    
+    // Provide more specific error messages
+    let errorMessage = "Erreur interne lors de la communication avec l'API AI.";
+    let errorDetails = error instanceof Error ? error.message : "Erreur inconnue";
+    
+    if (error instanceof Error) {
+      if (error.message.includes('ECONNRESET') || error.message.includes('socket disconnected')) {
+        errorMessage = "Connexion interrompue avec l'API AI. Vérifiez votre connexion réseau.";
+        errorDetails = "La connexion TLS a été réinitialisée. Cela peut être dû à un problème réseau ou à un timeout.";
+      } else if (error.message.includes('timeout') || error.name === 'AbortError') {
+        errorMessage = "Timeout lors de l'appel à l'API AI. La requête a pris trop de temps.";
+        errorDetails = "Le délai d'attente de 90 secondes a été dépassé.";
+      } else if (error.message.includes('fetch failed')) {
+        errorMessage = "Impossible de se connecter à l'API AI.";
+        errorDetails = "Vérifiez votre connexion internet et que l'API AIML est accessible.";
+      } else if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+        errorMessage = "Clé API invalide ou expirée.";
+        errorDetails = "Vérifiez que votre AI_API_KEY est correcte dans .env.production.";
+      }
+    }
+    
     return NextResponse.json(
       {
-        error: "Erreur interne lors de la communication avec Gemini.",
-        details: error instanceof Error ? error.message : "Erreur inconnue",
+        error: errorMessage,
+        details: errorDetails,
+        retry: true, // Indicate that the user can retry
       },
       { status: 500 },
     );

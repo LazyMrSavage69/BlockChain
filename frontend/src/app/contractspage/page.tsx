@@ -90,8 +90,16 @@ export default function ContractsPage() {
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.data) {
-          setCreatedContracts(data.data.created || []);
-          setReceivedContracts(data.data.received || []);
+          const created = data.data.created || [];
+          const received = data.data.received || [];
+          console.log("[ContractsPage] Fetched contracts:", { 
+            created: created.length, 
+            received: received.length,
+            createdIds: created.map((c: Contract) => c.id),
+            receivedIds: received.map((c: Contract) => c.id)
+          });
+          setCreatedContracts(created);
+          setReceivedContracts(received);
         }
       }
     } catch (err) {
@@ -300,8 +308,8 @@ export default function ContractsPage() {
                     key={contract.id}
                     className="bg-purple-950/50 border border-purple-500/30 rounded-xl p-6 hover:bg-purple-900/50 transition-all cursor-pointer"
                     onClick={() => {
-                      // Could navigate to contract detail page
-                      console.log('View contract:', contract.id);
+                      console.log("[ContractsPage] Clicked contract:", contract.id, contract);
+                      router.push(`/contracts/${contract.id}`);
                     }}
                   >
                     <div className="flex justify-between items-start mb-3">
@@ -347,8 +355,8 @@ export default function ContractsPage() {
                     key={contract.id}
                     className="bg-purple-950/50 border border-purple-500/30 rounded-xl p-6 hover:bg-purple-900/50 transition-all cursor-pointer"
                     onClick={() => {
-                      // Could navigate to contract detail page
-                      console.log('View contract:', contract.id);
+                      console.log("[ContractsPage] Clicked contract:", contract.id, contract);
+                      router.push(`/contracts/${contract.id}`);
                     }}
                   >
                     <div className="flex justify-between items-start mb-3">
