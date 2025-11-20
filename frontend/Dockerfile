@@ -3,10 +3,10 @@ FROM node:20 AS deps
 WORKDIR /app
 
 # Copy package files
-COPY package.json package-lock.json* ./
+COPY package.json package-lock.json* .npmrc* ./
 
-# Install dependencies
-RUN npm ci
+# Install dependencies with legacy-peer-deps to handle React 19 compatibility
+RUN npm install --legacy-peer-deps
 
 # ---- Builder stage ----
 FROM node:20-alpine AS builder

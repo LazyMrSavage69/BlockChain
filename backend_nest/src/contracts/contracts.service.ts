@@ -18,13 +18,19 @@ export class ContractsService {
     );
   }
 
-  async findAll(): Promise<Contract[]> {
+  async findAll(): Promise<any[]> {
+    // Get all templates where visibility is true or null (default to visible)
     const { data, error } = await this.supabase
       .from('contract_templates')
-      .select('*');
+      .select('*')
+      .or('visibility.is.null,visibility.eq.true'); // Show templates where visibility is null or true
 
-    if (error) throw new Error(error.message);
-    return data as Contract[];
+    if (error) {
+      console.error('Error fetching templates:', error);
+      throw new Error(error.message);
+    }
+    console.log(`[ContractsService] Found ${data?.length || 0} templates`);
+    return (data || []) as any[];
   }
 
   async findOne(id: string): Promise<Contract> {
@@ -36,6 +42,104 @@ export class ContractsService {
 
     if (error) throw new Error(error.message);
     return data as Contract;
+  }
+
+  async getTemplateById(id: string): Promise<any> {
+    const { data, error } = await this.supabase
+      .from('contract_templates')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      console.error('Error fetching template:', error);
+      return null;
+    }
+    return data;
+  }
+
+  async createMarketplaceTransaction(payload: {
+    buyerId: string;
+    templateId: string;
+    price: number;
+    paymentStatus: string;
+    txHash: string;
+  }): Promise<any> {
+    // Note: buyer_id in schema is UUID (auth.users.id), but we have integer user_id
+    // We'll store it as string for now, or you may need to map it
+    const { data, error } = await this.supabase
+      .from('marketplace_transactions')
+      .insert({
+        buyer_id: payload.buyerId, // This might need conversion to UUID
+        template_id: payload.templateId,
+        price: payload.price,
+        payment_status: payload.paymentStatus,
+        tx_hash: payload.txHash,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating marketplace transaction:', error);
+      throw new Error(error.message);
+    }
+    return data;
+  }
+
+  async createContractFromTemplate(
+    templateId: string,
+    buyerId: number,
+    sellerId: number, // creator_id from template
+  ): Promise<Contract> {
+    // Get template
+    const template = await this.getTemplateById(templateId);
+    if (!template) {
+      throw new Error('Template not found');
+    }
+
+    // Extract contract data from template
+    const example = template.example || {};
+    const schema = template.schema || {};
+
+    // Create contract with buyer as counterparty and seller as initiator
+    const contractPayload: CreateSignedContractDto = {
+      initiatorId: sellerId, // Template creator
+      counterpartyId: buyerId, // Buyer
+      title: template.title || 'Contract from Template',
+      summary: template.description || '',
+      clauses: example.clauses || schema.clauses || [],
+      suggestions: example.suggestions || [],
+      rawText: example.raw_text || null,
+      initiatorAgreed: false,
+      counterpartyAgreed: false,
+      status: 'draft',
+    };
+
+    // Set template_id reference
+    const contract = await this.createContract(contractPayload);
+    
+    // Update contract with template_id
+    await this.supabase
+      .from('contracts')
+      .update({ template_id: templateId })
+      .eq('id', contract.id);
+
+    return { ...contract, template_id: templateId } as Contract;
+  }
+
+  async updateMarketplaceTransaction(
+    txHash: string,
+    status: string,
+  ): Promise<void> {
+    const { error } = await this.supabase
+      .from('marketplace_transactions')
+      .update({ payment_status: status })
+      .eq('tx_hash', txHash);
+
+    if (error) {
+      console.error('Error updating marketplace transaction:', error);
+      throw new Error(error.message);
+    }
   }
 
   async createContract(
@@ -142,10 +246,13 @@ export class ContractsService {
       .from('contracts')
       .select('*')
       .eq('initiator_id', userId)
-      .neq('status', 'archived') // Exclude archived contracts
       .order('created_at', { ascending: false });
 
-    if (error) throw new Error(error.message);
+    if (error) {
+      console.error('Error fetching contracts by initiator:', error);
+      throw new Error(error.message);
+    }
+    console.log(`[ContractsService] Found ${data?.length || 0} contracts for initiator ${userId}`);
     return (data || []) as Contract[];
   }
 
@@ -154,10 +261,13 @@ export class ContractsService {
       .from('contracts')
       .select('*')
       .eq('counterparty_id', userId)
-      .neq('status', 'archived')
       .order('created_at', { ascending: false });
 
-    if (error) throw new Error(error.message);
+    if (error) {
+      console.error('Error fetching contracts by counterparty:', error);
+      throw new Error(error.message);
+    }
+    console.log(`[ContractsService] Found ${data?.length || 0} contracts for counterparty ${userId}`);
     return (data || []) as Contract[];
   }
 
@@ -187,11 +297,15 @@ export class ContractsService {
     created: (Contract | SignedContract)[];
     received: (Contract | SignedContract)[];
   }> {
+    console.log(`[ContractsService] getUserContracts called for userId: ${userId}`);
+    
     // Get unsigned contracts from contracts table
     const [unsignedCreated, unsignedReceived] = await Promise.all([
       this.getContractsByInitiator(userId),
       this.getContractsByCounterparty(userId),
     ]);
+
+    console.log(`[ContractsService] Unsigned contracts - created: ${unsignedCreated.length}, received: ${unsignedReceived.length}`);
 
     // Get signed contracts from signed_contracts table
     const [signedCreated, signedReceived] = await Promise.all([
@@ -199,26 +313,43 @@ export class ContractsService {
       this.getSignedContractsByCounterparty(userId),
     ]);
 
+    console.log(`[ContractsService] Signed contracts - created: ${signedCreated.length}, received: ${signedReceived.length}`);
+
     // Combine both (unsigned first, then signed)
-    return {
+    const result = {
       created: [...unsignedCreated, ...signedCreated],
       received: [...unsignedReceived, ...signedReceived],
     };
+
+    console.log(`[ContractsService] Total contracts - created: ${result.created.length}, received: ${result.received.length}`);
+    return result;
   }
 
   async getContractById(id: string): Promise<Contract | SignedContract> {
-    console.log(`[ContractsService] getContractById called with id: ${id} (type: ${typeof id})`);
+    console.log(`[ContractsService] getContractById called with id: ${id} (type: ${typeof id}, length: ${id?.length})`);
     
+    // Trim and validate ID
+    const trimmedId = id?.trim();
+    if (!trimmedId) {
+      throw new Error('Contract ID is required');
+    }
+
     // First, try to get from contracts table (unsigned contracts)
     const { data: contract, error: contractError } = await this.supabase
       .from('contracts')
       .select('*')
-      .eq('id', id)
+      .eq('id', trimmedId)
       .single();
 
     console.log(`[ContractsService] Contracts table query result:`, {
       hasData: !!contract,
-      error: contractError ? { code: contractError.code, message: contractError.message, details: contractError.details } : null
+      contractId: contract?.id,
+      error: contractError ? { 
+        code: contractError.code, 
+        message: contractError.message, 
+        details: contractError.details,
+        hint: contractError.hint
+      } : null
     });
 
     if (!contractError && contract) {
@@ -226,16 +357,27 @@ export class ContractsService {
       return contract as Contract;
     }
 
+    // Log the specific error if it's not a "not found" error
+    if (contractError && contractError.code !== 'PGRST116') {
+      console.error(`[ContractsService] Unexpected error querying contracts table:`, contractError);
+    }
+
     // If not found, try signed_contracts
     const { data: signedContract, error: signedError } = await this.supabase
       .from('signed_contracts')
       .select('*')
-      .eq('id', id)
+      .eq('id', trimmedId)
       .single();
 
     console.log(`[ContractsService] Signed_contracts table query result:`, {
       hasData: !!signedContract,
-      error: signedError ? { code: signedError.code, message: signedError.message, details: signedError.details } : null
+      contractId: signedContract?.id,
+      error: signedError ? { 
+        code: signedError.code, 
+        message: signedError.message, 
+        details: signedError.details,
+        hint: signedError.hint
+      } : null
     });
 
     if (!signedError && signedContract) {
@@ -243,9 +385,22 @@ export class ContractsService {
       return signedContract as SignedContract;
     }
 
+    // Log the specific error if it's not a "not found" error
+    if (signedError && signedError.code !== 'PGRST116') {
+      console.error(`[ContractsService] Unexpected error querying signed_contracts table:`, signedError);
+    }
+
+    // Not found in either table - try to check if ID exists with a different query
+    const { data: allContracts, error: listError } = await this.supabase
+      .from('contracts')
+      .select('id')
+      .limit(5);
+    
+    console.log(`[ContractsService] Sample contract IDs in database:`, allContracts?.map(c => c.id));
+
     // Not found in either table
-    console.log(`[ContractsService] Contract not found in either table: ${id}`);
-    throw new Error(`Contract with id ${id} not found in contracts or signed_contracts tables`);
+    console.log(`[ContractsService] Contract not found in either table: ${trimmedId}`);
+    throw new Error(`Contract with id ${trimmedId} not found in contracts or signed_contracts tables`);
   }
 
   // Legacy method for backward compatibility

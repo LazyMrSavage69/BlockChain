@@ -1,11 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { useEditor, EditorContent } from "@tiptap/react";
-import StarterKit from "@tiptap/starter-kit";
-import Placeholder from "@tiptap/extension-placeholder";
 import Navbar from "@/app/navbar/page";
+import { Bold, Italic, Underline, List, ListOrdered, AlignLeft, Link as LinkIcon } from "lucide-react";
 
 interface User {
   id: number;
@@ -39,6 +37,185 @@ interface Contract {
 
 const GATEWAY_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+// Simple Rich Text Editor Component
+function RichTextEditor({
+  content,
+  onChange,
+  readOnly,
+  placeholder,
+}: {
+  content: string;
+  onChange: (html: string) => void;
+  readOnly: boolean;
+  placeholder?: string;
+}) {
+  const editorRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (editorRef.current && editorRef.current.innerHTML !== content) {
+      editorRef.current.innerHTML = content;
+    }
+  }, [content]);
+
+  const handleInput = () => {
+    if (editorRef.current) {
+      onChange(editorRef.current.innerHTML);
+    }
+  };
+
+  const execCommand = (command: string, value?: string) => {
+    document.execCommand(command, false, value);
+    if (editorRef.current) {
+      editorRef.current.focus();
+      onChange(editorRef.current.innerHTML);
+    }
+  };
+
+  const formatHeading = (level: number) => {
+    execCommand("formatBlock", `h${level}`);
+  };
+
+  if (readOnly) {
+    return (
+      <div
+        className="prose max-w-none p-6 min-h-[500px] bg-gray-50"
+        dangerouslySetInnerHTML={{ __html: content || placeholder || "" }}
+      />
+    );
+  }
+
+  return (
+    <div className="border border-gray-300 rounded-lg overflow-hidden bg-white">
+      {/* Toolbar */}
+      <div className="border-b border-gray-300 bg-gray-50 p-2 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => formatHeading(2)}
+          className="p-2 hover:bg-gray-200 rounded"
+          title="Titre 2"
+        >
+          <span className="font-bold text-sm">H2</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => formatHeading(3)}
+          className="p-2 hover:bg-gray-200 rounded"
+          title="Titre 3"
+        >
+          <span className="font-bold text-sm">H3</span>
+        </button>
+        <div className="w-px bg-gray-300 mx-1" />
+        <button
+          type="button"
+          onClick={() => execCommand("bold")}
+          className="p-2 hover:bg-gray-200 rounded"
+          title="Gras"
+        >
+          <Bold size={18} />
+        </button>
+        <button
+          type="button"
+          onClick={() => execCommand("italic")}
+          className="p-2 hover:bg-gray-200 rounded"
+          title="Italique"
+        >
+          <Italic size={18} />
+        </button>
+        <button
+          type="button"
+          onClick={() => execCommand("underline")}
+          className="p-2 hover:bg-gray-200 rounded"
+          title="Souligné"
+        >
+          <Underline size={18} />
+        </button>
+        <div className="w-px bg-gray-300 mx-1" />
+        <button
+          type="button"
+          onClick={() => execCommand("insertUnorderedList")}
+          className="p-2 hover:bg-gray-200 rounded"
+          title="Liste à puces"
+        >
+          <List size={18} />
+        </button>
+        <button
+          type="button"
+          onClick={() => execCommand("insertOrderedList")}
+          className="p-2 hover:bg-gray-200 rounded"
+          title="Liste numérotée"
+        >
+          <ListOrdered size={18} />
+        </button>
+        <button
+          type="button"
+          onClick={() => execCommand("justifyLeft")}
+          className="p-2 hover:bg-gray-200 rounded"
+          title="Aligner à gauche"
+        >
+          <AlignLeft size={18} />
+        </button>
+        <div className="w-px bg-gray-300 mx-1" />
+        <button
+          type="button"
+          onClick={() => {
+            const url = prompt("Entrez l'URL du lien:");
+            if (url) execCommand("createLink", url);
+          }}
+          className="p-2 hover:bg-gray-200 rounded"
+          title="Insérer un lien"
+        >
+          <LinkIcon size={18} />
+        </button>
+      </div>
+
+      {/* Editor */}
+      <div
+        ref={editorRef}
+        contentEditable
+        onInput={handleInput}
+        className="p-6 min-h-[500px] outline-none prose max-w-none"
+        style={{
+          fontSize: "16px",
+          lineHeight: "1.6",
+        }}
+        data-placeholder={placeholder || "Commencez à éditer le contrat..."}
+        suppressContentEditableWarning
+      />
+      
+      <style jsx>{`
+        [contenteditable][data-placeholder]:empty:before {
+          content: attr(data-placeholder);
+          color: #adb5bd;
+          pointer-events: none;
+        }
+        [contenteditable] h2 {
+          font-size: 1.5em;
+          font-weight: bold;
+          margin-top: 1em;
+          margin-bottom: 0.5em;
+        }
+        [contenteditable] h3 {
+          font-size: 1.25em;
+          font-weight: bold;
+          margin-top: 0.75em;
+          margin-bottom: 0.5em;
+        }
+        [contenteditable] p {
+          margin: 0.75em 0;
+        }
+        [contenteditable] ul,
+        [contenteditable] ol {
+          padding-left: 1.5em;
+          margin: 0.75em 0;
+        }
+        [contenteditable] li {
+          margin: 0.25em 0;
+        }
+      `}</style>
+    </div>
+  );
+}
+
 export default function ContractViewPage() {
   const router = useRouter();
   const params = useParams();
@@ -51,8 +228,14 @@ export default function ContractViewPage() {
   const [isAccepting, setIsAccepting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [editorContent, setEditorContent] = useState<string>("");
+  const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const [isInitialized, setIsInitialized] = useState(false);
+  
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastSavedContentRef = useRef<string>("");
 
-  // Convert clauses to HTML for Tiptap
+  // Convert clauses to HTML
   const clausesToHTML = (clauses: ContractClause[]): string => {
     if (!clauses || clauses.length === 0) return "";
     return clauses
@@ -83,8 +266,16 @@ export default function ContractViewPage() {
         }
         currentTitle = element.textContent || "";
         currentBody = "";
-      } else if (element.tagName === "P") {
-        currentBody += (currentBody ? "\n" : "") + (element.textContent || "");
+      } else if (element.tagName === "H3") {
+        // Treat H3 as part of body or as a subtitle
+        if (currentTitle) {
+          currentBody += (currentBody ? "\n" : "") + (element.textContent || "");
+        }
+      } else if (element.tagName === "P" || element.tagName === "DIV") {
+        const text = element.textContent || "";
+        if (text.trim()) {
+          currentBody += (currentBody ? "\n" : "") + text;
+        }
       }
     });
 
@@ -98,19 +289,90 @@ export default function ContractViewPage() {
     return clauses.length > 0 ? clauses : contract?.clauses || [];
   };
 
-  const editor = useEditor({
-    extensions: [
-      StarterKit,
-      Placeholder.configure({
-        placeholder: "Commencez à éditer le contrat...",
-      }),
-    ],
-    content: "",
-    editable: true,
-    onUpdate: ({ editor }) => {
-      // Auto-save could be implemented here
-    },
-  });
+  // Auto-save function with debounce
+  const autoSaveContract = useCallback(async (content: string) => {
+    if (!contract || !user) return;
+    
+    // Check if user can edit (not signed and is one of the parties)
+    const isInitiator = user.id === contract.initiator_id;
+    const isCounterparty = user.id === contract.counterparty_id;
+    const isSigned = contract.status === "fully_signed";
+    const canEditContract = !isSigned && (isInitiator || isCounterparty);
+    
+    if (!canEditContract) return;
+    
+    // Clear existing timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    // Set new timeout for auto-save (2 seconds after last change)
+    saveTimeoutRef.current = setTimeout(async () => {
+      // Only save if content has changed
+      if (content === lastSavedContentRef.current) {
+        return;
+      }
+
+      setIsSaving(true);
+      setAutoSaveStatus("saving");
+      setError(null);
+
+      try {
+        const updatedClauses = htmlToClauses(content);
+
+        const response = await fetch(
+          `/api/contracts/${contractId}/update`,
+          {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            credentials: "include",
+            body: JSON.stringify({
+              clauses: updatedClauses,
+              title: contract.title,
+              summary: contract.summary,
+            }),
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          setContract(data.data);
+          lastSavedContentRef.current = content;
+          setAutoSaveStatus("saved");
+          setTimeout(() => {
+            setAutoSaveStatus("idle");
+          }, 2000);
+        } else {
+          const errorData = await response.json();
+          setError(errorData.error || "Erreur lors de la sauvegarde automatique");
+          setAutoSaveStatus("idle");
+        }
+      } catch (err) {
+        console.error("Error auto-saving contract:", err);
+        setError("Erreur lors de la sauvegarde automatique");
+        setAutoSaveStatus("idle");
+      } finally {
+        setIsSaving(false);
+      }
+    }, 2000); // 2 second debounce
+  }, [contract, user, contractId]);
+
+  // Handle editor content change
+  const handleEditorChange = (content: string) => {
+    setEditorContent(content);
+    if (contract && user && isInitialized) {
+      const isInitiator = user.id === contract.initiator_id;
+      const isCounterparty = user.id === contract.counterparty_id;
+      const isSigned = contract.status === "fully_signed";
+      const canEditContract = !isSigned && (isInitiator || isCounterparty);
+      
+      if (canEditContract) {
+        autoSaveContract(content);
+      }
+    }
+  };
 
   useEffect(() => {
     fetchUser();
@@ -123,12 +385,23 @@ export default function ContractViewPage() {
   }, [user, contractId]);
 
   useEffect(() => {
-    if (contract && editor) {
+    if (contract && !isInitialized) {
       console.log("[ContractViewPage] Setting editor content from contract:", contract);
       const html = clausesToHTML(contract.clauses || []);
-      editor.commands.setContent(html);
+      setEditorContent(html);
+      lastSavedContentRef.current = html;
+      setIsInitialized(true);
     }
-  }, [contract, editor]);
+  }, [contract]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const fetchUser = async () => {
     try {
@@ -182,14 +455,13 @@ export default function ContractViewPage() {
   };
 
   const saveContract = async () => {
-    if (!editor || !contract || !user) return;
+    if (!contract || !user) return;
 
     setIsSaving(true);
     setError(null);
 
     try {
-      const html = editor.getHTML();
-      const updatedClauses = htmlToClauses(html);
+      const updatedClauses = htmlToClauses(editorContent);
 
       const response = await fetch(
         `/api/contracts/${contractId}/update`,
@@ -210,6 +482,7 @@ export default function ContractViewPage() {
       if (response.ok) {
         const data = await response.json();
         setContract(data.data);
+        lastSavedContentRef.current = editorContent;
         setSuccessMessage("Contrat sauvegardé avec succès!");
         setTimeout(() => setSuccessMessage(null), 3000);
       } else {
@@ -325,13 +598,6 @@ export default function ContractViewPage() {
     ? contract.counterparty_agreed
     : contract.initiator_agreed;
 
-  // Disable editor if signed
-  useEffect(() => {
-    if (editor) {
-      editor.setEditable(canEdit);
-    }
-  }, [editor, canEdit]);
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-950 via-purple-900 to-indigo-950">
       <Navbar user={user} onLogout={handleLogout} />
@@ -404,11 +670,18 @@ export default function ContractViewPage() {
           <div className="bg-gradient-to-br from-purple-900/50 to-indigo-900/50 backdrop-blur-sm border border-purple-500/20 rounded-2xl shadow-2xl p-6">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-xl font-bold text-white">Contenu du contrat</h2>
-              {!isSigned && (
-                <span className="text-purple-300 text-sm">
-                  {canEdit ? "Mode édition" : "Mode lecture"}
-                </span>
-              )}
+              <div className="flex items-center gap-3">
+                {canEdit && (
+                  <span className="text-purple-300 text-sm">
+                    {autoSaveStatus === "saving" && "💾 Sauvegarde..."}
+                    {autoSaveStatus === "saved" && "✓ Sauvegardé"}
+                    {autoSaveStatus === "idle" && "Mode édition"}
+                  </span>
+                )}
+                {!isSigned && !canEdit && (
+                  <span className="text-purple-300 text-sm">Mode lecture</span>
+                )}
+              </div>
             </div>
 
             {isSigned && (
@@ -417,86 +690,15 @@ export default function ContractViewPage() {
               </div>
             )}
 
-            <div className="bg-white rounded-lg p-6 min-h-[500px]">
-              <style jsx global>{`
-                .ProseMirror {
-                  outline: none;
-                  min-height: 400px;
-                }
-                .ProseMirror p {
-                  margin: 0.75em 0;
-                }
-                .ProseMirror h2 {
-                  font-size: 1.5em;
-                  font-weight: bold;
-                  margin-top: 1em;
-                  margin-bottom: 0.5em;
-                }
-                .ProseMirror h3 {
-                  font-size: 1.25em;
-                  font-weight: bold;
-                  margin-top: 0.75em;
-                  margin-bottom: 0.5em;
-                }
-                .ProseMirror ul,
-                .ProseMirror ol {
-                  padding-left: 1.5em;
-                  margin: 0.75em 0;
-                }
-                .ProseMirror li {
-                  margin: 0.25em 0;
-                }
-                .ProseMirror strong {
-                  font-weight: bold;
-                }
-                .ProseMirror em {
-                  font-style: italic;
-                }
-                .ProseMirror code {
-                  background-color: #f4f4f4;
-                  padding: 0.2em 0.4em;
-                  border-radius: 3px;
-                  font-family: monospace;
-                }
-                .ProseMirror pre {
-                  background-color: #f4f4f4;
-                  padding: 1em;
-                  border-radius: 5px;
-                  overflow-x: auto;
-                }
-                .ProseMirror blockquote {
-                  border-left: 3px solid #ccc;
-                  padding-left: 1em;
-                  margin: 1em 0;
-                  font-style: italic;
-                }
-                .ProseMirror[contenteditable="false"] {
-                  background-color: #f9f9f9;
-                  cursor: not-allowed;
-                }
-                .ProseMirror .is-empty::before {
-                  content: attr(data-placeholder);
-                  float: left;
-                  color: #adb5bd;
-                  pointer-events: none;
-                  height: 0;
-                }
-              `}</style>
-              <EditorContent editor={editor} />
-            </div>
+            <RichTextEditor
+              content={editorContent}
+              onChange={handleEditorChange}
+              readOnly={!canEdit}
+              placeholder={canEdit ? "Commencez à éditer le contrat..." : ""}
+            />
 
             {/* Action Buttons */}
             <div className="mt-6 flex gap-4 flex-wrap">
-              {canEdit && (
-                <button
-                  onClick={saveContract}
-                  disabled={isSaving}
-                  className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isSaving ? "Sauvegarde..." : "Sauvegarder les modifications"}
-                </button>
-              )}
-
               {!isSigned && !userHasAgreed && (
                 <button
                   onClick={acceptContract}
@@ -539,4 +741,3 @@ export default function ContractViewPage() {
     </div>
   );
 }
-

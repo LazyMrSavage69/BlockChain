@@ -12,8 +12,11 @@ import {
   BadRequestException,
   Headers,
   Req,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { SubscriptionService } from './subscription.service';
+import { ContractsService } from '../contracts/contracts.service';
 import Stripe from 'stripe';
 import {
   CreateSubscriptionDto,
@@ -29,7 +32,11 @@ import type { Request } from 'express';
 
 @Controller('api/subscriptions')
 export class SubscriptionController {
-  constructor(private readonly subscriptionService: SubscriptionService) {}
+  constructor(
+    private readonly subscriptionService: SubscriptionService,
+    @Inject(forwardRef(() => ContractsService))
+    private readonly contractsService: ContractsService,
+  ) {}
 
   @Get('health')
   @HttpCode(HttpStatus.OK)
@@ -377,19 +384,69 @@ export class SubscriptionController {
       switch (event.type) {
         case 'checkout.session.completed': {
           const session = event.data.object as any;
-          await this.subscriptionService.updateTransactionStatusByProviderId(
-            session.id,
-            'completed',
-          );
+          const metadata = session.metadata || {};
+          
+          // Check if this is a template purchase
+          if (metadata.type === 'template_purchase') {
+            console.log('📦 Processing template purchase webhook', {
+              templateId: metadata.template_id,
+              userId: metadata.user_id,
+            });
+            
+            try {
+              // Update marketplace transaction status
+              await this.contractsService.updateMarketplaceTransaction(
+                session.id,
+                'completed',
+              );
+              
+              // Get template to find creator_id
+              const template = await this.contractsService.getTemplateById(metadata.template_id);
+              if (!template) {
+                console.error('Template not found:', metadata.template_id);
+                break;
+              }
+              
+              // Create contract from template
+              // Note: creator_id might be UUID, we need to handle this
+              const creatorId = template.creator_id ? parseInt(template.creator_id.toString()) : parseInt(metadata.user_id);
+              const buyerId = parseInt(metadata.user_id);
+              
+              const contract = await this.contractsService.createContractFromTemplate(
+                metadata.template_id,
+                buyerId,
+                creatorId,
+              );
+              
+              console.log('✅ Contract created from template:', contract.id);
+            } catch (error) {
+              console.error('❌ Error processing template purchase:', error);
+            }
+          } else {
+            // Regular subscription payment
+            await this.subscriptionService.updateTransactionStatusByProviderId(
+              session.id,
+              'completed',
+            );
+          }
           break;
         }
         case 'checkout.session.expired': {
           const session = event.data.object as any;
-          await this.subscriptionService.updateTransactionStatusByProviderId(
-            session.id,
-            'failed',
-            'Session expired',
-          );
+          const metadata = session.metadata || {};
+          
+          if (metadata.type === 'template_purchase') {
+            await this.contractsService.updateMarketplaceTransaction(
+              session.id,
+              'failed',
+            );
+          } else {
+            await this.subscriptionService.updateTransactionStatusByProviderId(
+              session.id,
+              'failed',
+              'Session expired',
+            );
+          }
           break;
         }
         default:

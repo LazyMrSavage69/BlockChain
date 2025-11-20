@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strings"
 	"net/http/httputil"
 	"net/url"
 	"os"
@@ -354,12 +355,105 @@ func main() {
 	mux.HandleFunc("/api/avatars", avatarHandler)
 	mux.HandleFunc("/api/avatars/", avatarHandler)
 
-	// --- GENERIC /api/ to Auth (keep after specific service routes) ---
-	mux.HandleFunc("/api/", createProxyHandler(authProxy))
-
 	// --- CONTRACTS SERVICE (NestJS) ---
+	// Handle /api/contracts/* and transform to /contracts/* for backend
+	contractsHandler := func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("Gateway received contracts request: %s %s", r.Method, r.URL.Path)
+		
+		// Transform /api/contracts/* to /contracts/* for backend
+		backendPath := r.URL.Path
+		if strings.HasPrefix(backendPath, "/api/contracts") {
+			backendPath = strings.Replace(backendPath, "/api/contracts", "/contracts", 1)
+		}
+		
+		backendURL := backendServiceURL + backendPath
+		if r.URL.RawQuery != "" {
+			backendURL += "?" + r.URL.RawQuery
+		}
+
+		// Read the body to preserve it
+		bodyBytes, err := io.ReadAll(r.Body)
+		if err != nil {
+			log.Printf("Failed to read request body: %v", err)
+			http.Error(w, "Failed to read request body", http.StatusInternalServerError)
+			return
+		}
+		r.Body.Close()
+
+		// Create new request with the body
+		req, err := http.NewRequest(r.Method, backendURL, bytes.NewReader(bodyBytes))
+		if err != nil {
+			log.Printf("Failed to create request: %v", err)
+			http.Error(w, "Failed to create request", http.StatusInternalServerError)
+			return
+		}
+		
+		// Set Content-Length header
+		req.ContentLength = int64(len(bodyBytes))
+		
+		// Ensure Content-Type is set
+		if r.Header.Get("Content-Type") == "" {
+			req.Header.Set("Content-Type", "application/json")
+		}
+
+		// Copy headers
+		for name, values := range r.Header {
+			if name == "Content-Type" && req.Header.Get("Content-Type") != "" {
+				continue
+			}
+			for _, value := range values {
+				req.Header.Add(name, value)
+			}
+		}
+
+		// Forward session cookie if present
+		if cookie, err := r.Cookie("session_token"); err == nil {
+			req.AddCookie(cookie)
+			log.Printf("Forwarding session cookie to backend")
+		}
+
+		client := &http.Client{}
+		resp, err := client.Do(req)
+		if err != nil {
+			log.Printf("Failed to reach backend: %v", err)
+			http.Error(w, "Failed to reach backend", http.StatusInternalServerError)
+			return
+		}
+		defer resp.Body.Close()
+
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			log.Printf("Failed to read response: %v", err)
+			http.Error(w, "Failed to read response", http.StatusInternalServerError)
+			return
+		}
+
+		log.Printf("Backend response status: %d", resp.StatusCode)
+
+		// Copy headers
+		for name, values := range resp.Header {
+			if name == "Access-Control-Allow-Origin" ||
+				name == "Access-Control-Allow-Methods" ||
+				name == "Access-Control-Allow-Headers" ||
+				name == "Access-Control-Allow-Credentials" {
+				continue
+			}
+			for _, value := range values {
+				w.Header().Add(name, value)
+			}
+		}
+
+		w.WriteHeader(resp.StatusCode)
+		w.Write(body)
+	}
+	
+	mux.HandleFunc("/api/contracts", contractsHandler)
+	mux.HandleFunc("/api/contracts/", contractsHandler)
 	mux.HandleFunc("/contracts", createBackendProxyHandler(backendServiceURL))
 	mux.HandleFunc("/contracts/", createBackendProxyHandler(backendServiceURL))
+
+	// --- GENERIC /api/ to Auth (keep after specific service routes) ---
+	mux.HandleFunc("/api/", createProxyHandler(authProxy))
 
 	// --- FRIENDS SERVICE (NestJS) ---
 	mux.HandleFunc("/friends", createBackendProxyHandler(backendServiceURL))
@@ -378,6 +472,7 @@ func main() {
 	log.Printf("   - /api/users/search (Auth/Go)")
 	log.Printf("   - /api/subscriptions/* (NestJS)")
 	log.Printf("   - /api/avatars (NestJS)")
+	log.Printf("   - /api/contracts/* (NestJS)")
 	log.Printf("   - /contracts/* (NestJS)")
 
 	log.Fatal(http.ListenAndServe(":"+port, handler))

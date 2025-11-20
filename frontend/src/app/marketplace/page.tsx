@@ -1,6 +1,6 @@
 "use client"
 import React, { useState, useEffect, memo, useCallback } from 'react';
-import { Search, X, Edit, Star, Download } from 'lucide-react';
+import { Search, X, Edit, Star, Download, ShoppingCart } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Navbar from '../navbar/page';
 
@@ -143,6 +143,16 @@ const ContractModal = memo<ContractModalProps>(({ template, onClose, onModify })
                   {new Date(template.created_at).toLocaleDateString()}
                 </p>
               </div>
+              <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+                <p className="text-gray-400 text-sm mb-1">Price</p>
+                <p className="text-white font-medium text-lg">
+                  {template.price > 0 ? `$${template.price.toFixed(2)}` : 'Gratuit'}
+                </p>
+              </div>
+              <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+                <p className="text-gray-400 text-sm mb-1">Category</p>
+                <p className="text-white font-medium">{template.category}</p>
+              </div>
             </div>
 
             <div>
@@ -182,13 +192,23 @@ const ContractModal = memo<ContractModalProps>(({ template, onClose, onModify })
           >
             Go Back
           </button>
-          <button
-            onClick={() => onModify(template)}
-            className="flex-1 px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-lg font-medium transition-all flex items-center justify-center gap-2 shadow-lg"
-          >
-            <Edit size={20} />
-            Modify Contract
-          </button>
+          {template.price > 0 ? (
+            <button
+              onClick={() => onModify(template)}
+              className="flex-1 px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-lg font-medium transition-all flex items-center justify-center gap-2 shadow-lg"
+            >
+              <ShoppingCart size={20} />
+              Acheter ${template.price.toFixed(2)}
+            </button>
+          ) : (
+            <button
+              onClick={() => onModify(template)}
+              className="flex-1 px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-lg font-medium transition-all flex items-center justify-center gap-2 shadow-lg"
+            >
+              <Edit size={20} />
+              Utiliser gratuitement
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -222,7 +242,14 @@ const TemplateCard = memo<{ template: ContractTemplate; onClick: () => void }>(
       </div>
       
       <div className="p-4 bg-black">
-        <h3 className="font-semibold text-white mb-1">{template.title}</h3>
+        <div className="flex items-center justify-between mb-1">
+          <h3 className="font-semibold text-white">{template.title}</h3>
+          {template.price > 0 ? (
+            <span className="text-orange-500 font-bold">${template.price.toFixed(2)}</span>
+          ) : (
+            <span className="text-green-500 font-bold">Gratuit</span>
+          )}
+        </div>
         <p className="text-gray-500 text-sm">{template.category}</p>
       </div>
     </div>
@@ -244,21 +271,32 @@ const Marketplace: React.FC = () => {
     fetchUser();
   }, []);
 
-      useEffect(() => {
+  useEffect(() => {
     const fetchTemplates = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/contracts`);
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const response = await fetch('/api/contracts/templates', {
+          credentials: 'include',
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          console.error('Error fetching templates:', response.status, errorData);
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
       
         const data: ContractTemplate[] = await response.json();
+        console.log('[Marketplace] Fetched templates:', data.length, data);
         setTemplates(data);
       } catch (error) {
         console.error('Error fetching templates:', error);
+        // Set empty array on error to show empty state
+        setTemplates([]);
       } finally {
         setLoading(false);
       }
     };
+    
     fetchTemplates();
   }, []);
 
@@ -301,10 +339,55 @@ const Marketplace: React.FC = () => {
     t.description.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleModify = useCallback((template: ContractTemplate) => {
-    console.log('Navigate to modify page for template:', template.id);
-    alert(`Navigating to modify page for: ${template.title}`);
-  }, []);
+  const handleModify = useCallback(async (template: ContractTemplate) => {
+    if (!user) {
+      router.push('/login');
+      return;
+    }
+
+    // If template is free, create contract directly
+    if (template.price === 0) {
+      // TODO: Create contract from template directly
+      console.log('Creating free contract from template:', template.id);
+      alert(`Création du contrat depuis le template: ${template.title}`);
+      return;
+    }
+
+    // If template is paid, create Stripe checkout
+    try {
+      const successUrl = `${window.location.origin}/contractspage?purchase=success`;
+      const cancelUrl = `${window.location.origin}/marketplace`;
+
+      const response = await fetch(`/api/contracts/templates/${template.id}/checkout`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          userEmail: user.email,
+          userId: user.id,
+          successUrl,
+          cancelUrl,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        alert(`Erreur: ${error.error || 'Impossible de créer le checkout'}`);
+        return;
+      }
+
+      const data = await response.json();
+      if (data.success && data.data?.checkoutUrl) {
+        // Redirect to Stripe checkout
+        window.location.href = data.data.checkoutUrl;
+      }
+    } catch (error) {
+      console.error('Error creating checkout:', error);
+      alert('Erreur lors de la création du checkout');
+    }
+  }, [user, router]);
 
   const handleCardClick = useCallback((template: ContractTemplate) => {
     setSelectedTemplate(template);

@@ -1,9 +1,10 @@
-import { Body, Controller, Get, Param, Post, Put, Query, Req, NotFoundException } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Put, Query, Req, NotFoundException, BadRequestException, HttpCode, HttpStatus } from '@nestjs/common';
 import { ContractsService } from './contracts.service';
 import { CreateSignedContractDto } from './dto/create-signed-contract.dto';
 import { UpdateContractDto } from './dto/update-contract.dto';
 import { AcceptContractDto } from './dto/accept-contract.dto';
 import { SubscriptionService } from '../subscription/subscription.service';
+import Stripe from 'stripe';
 import express from 'express';
 
 @Controller('contracts')
@@ -15,7 +16,22 @@ export class ContractsController {
 
   @Get()
   async getAll() {
-    return this.contractsService.findAll();
+    const templates = await this.contractsService.findAll();
+    // Map templates to include all required fields
+    return templates.map((template: any) => ({
+      id: template.id,
+      title: template.title || 'Untitled Template',
+      category: template.category || 'Uncategorized',
+      description: template.description || '',
+      price: template.price || 0,
+      rating: template.rating || 0,
+      downloads: template.downloads || 0,
+      creator: template.creator || 'Unknown', // You may need to fetch creator name from users table
+      created_at: template.created_at || new Date().toISOString(),
+      visibility: template.visibility !== false,
+      schema: template.schema,
+      example: template.example,
+    }));
   }
 
   @Get(':id')
@@ -103,6 +119,87 @@ export class ContractsController {
       success: true,
       data: contract,
       isSigned: contract.status === 'fully_signed' || 'contract_id' in contract,
+    };
+  }
+
+  @Post('templates/:templateId/checkout')
+  @HttpCode(HttpStatus.CREATED)
+  async createTemplateCheckout(
+    @Param('templateId') templateId: string,
+    @Body()
+    body: {
+      userEmail: string;
+      userId: number;
+      successUrl: string;
+      cancelUrl: string;
+    },
+  ) {
+    console.log('➡️ /contracts/templates/:templateId/checkout called', {
+      templateId,
+      userEmail: body?.userEmail,
+      userId: body?.userId,
+    });
+
+    const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+    if (!stripeSecretKey) {
+      throw new BadRequestException('Stripe is not configured');
+    }
+    const stripe = new Stripe(stripeSecretKey, { apiVersion: '2024-06-20' as any });
+
+    // Get template
+    const template = await this.contractsService.getTemplateById(templateId);
+    if (!template) {
+      throw new NotFoundException(`Template with id ${templateId} not found`);
+    }
+
+    const price = (template as any).price || 0;
+    if (price <= 0) {
+      throw new BadRequestException('Template is free, no checkout needed');
+    }
+
+    // Create Stripe Checkout Session
+    console.log('🧾 Creating Stripe checkout session for template');
+    const session = await stripe.checkout.sessions.create({
+      mode: 'payment',
+      line_items: [
+        {
+          price_data: {
+            currency: 'usd',
+            unit_amount: Math.round(price * 100), // Convert to cents
+            product_data: {
+              name: (template as any).title || 'Contract Template',
+              description: (template as any).description || '',
+            },
+          },
+          quantity: 1,
+        },
+      ],
+      success_url: body.successUrl,
+      cancel_url: body.cancelUrl,
+      metadata: {
+        user_email: body.userEmail,
+        user_id: String(body.userId),
+        template_id: templateId,
+        type: 'template_purchase',
+      },
+    });
+    console.log('✅ Stripe session created', { sessionId: session.id });
+
+    // Record transaction in marketplace_transactions
+    await this.contractsService.createMarketplaceTransaction({
+      buyerId: body.userId.toString(), // Will be converted to UUID if needed
+      templateId,
+      price,
+      paymentStatus: 'pending',
+      txHash: session.id,
+    });
+
+    return {
+      success: true,
+      data: {
+        checkoutUrl: session.url,
+        sessionId: session.id,
+      },
     };
   }
 }
