@@ -1,0 +1,15 @@
+{
+  "name": "miniprojet-blockchain",
+  "version": "1.0.0",
+  "description": "Smart contracts for MiniProjetV0",
+  "scripts": {
+    "test": "npx hardhat test",
+    "compile": "npx hardhat compile",
+    "deploy": "npx hardhat run scripts/deploy.ts --network localhost",
+    "node": "npx hardhat node"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "hardhat": "^2.22.0"
+  }
+}

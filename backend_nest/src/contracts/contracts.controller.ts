@@ -12,7 +12,7 @@ export class ContractsController {
   constructor(
     private readonly contractsService: ContractsService,
     private readonly subscriptionService: SubscriptionService,
-  ) {}
+  ) { }
 
   @Get()
   async getAll() {
@@ -201,5 +201,17 @@ export class ContractsController {
         sessionId: session.id,
       },
     };
+  }
+
+  @Post(':id/blockchain-hash')
+  async updateBlockchainHash(
+    @Param('id') id: string,
+    @Body() body: { txHash: string },
+  ) {
+    if (!body.txHash) {
+      throw new BadRequestException('Transaction hash is required');
+    }
+    await this.contractsService.updateContractTxHash(id, body.txHash);
+    return { success: true };
   }
 }

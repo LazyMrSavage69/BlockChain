@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Navbar from "@/app/navbar/page";
-import { Bold, Italic, Underline, List, ListOrdered, AlignLeft, Link as LinkIcon } from "lucide-react";
+import { Bold, Italic, Underline, List, ListOrdered, AlignLeft, Link as LinkIcon, Wallet } from "lucide-react";
+import { registerOnBlockchain, signOnBlockchain, getBlockchainContract } from "../../../lib/web3";
 
 interface User {
   id: number;
@@ -181,7 +182,7 @@ function RichTextEditor({
         data-placeholder={placeholder || "Commencez à éditer le contrat..."}
         suppressContentEditableWarning
       />
-      
+
       <style jsx>{`
         [contenteditable][data-placeholder]:empty:before {
           content: attr(data-placeholder);
@@ -231,9 +232,12 @@ export default function ContractViewPage() {
   const [editorContent, setEditorContent] = useState<string>("");
   const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [isInitialized, setIsInitialized] = useState(false);
-  
+
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastSavedContentRef = useRef<string>("");
+
+  const [isBlockchainLoading, setIsBlockchainLoading] = useState(false);
+  const [blockchainHash, setBlockchainHash] = useState<string | null>(null);
 
   // Convert clauses to HTML
   const clausesToHTML = (clauses: ContractClause[]): string => {
@@ -292,15 +296,15 @@ export default function ContractViewPage() {
   // Auto-save function with debounce
   const autoSaveContract = useCallback(async (content: string) => {
     if (!contract || !user) return;
-    
+
     // Check if user can edit (not signed and is one of the parties)
     const isInitiator = user.id === contract.initiator_id;
     const isCounterparty = user.id === contract.counterparty_id;
     const isSigned = contract.status === "fully_signed";
     const canEditContract = !isSigned && (isInitiator || isCounterparty);
-    
+
     if (!canEditContract) return;
-    
+
     // Clear existing timeout
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
@@ -367,7 +371,7 @@ export default function ContractViewPage() {
       const isCounterparty = user.id === contract.counterparty_id;
       const isSigned = contract.status === "fully_signed";
       const canEditContract = !isSigned && (isInitiator || isCounterparty);
-      
+
       if (canEditContract) {
         autoSaveContract(content);
       }
@@ -545,6 +549,69 @@ export default function ContractViewPage() {
     }
   };
 
+  const handleBlockchainSign = async () => {
+    if (!contract || !user) return;
+    setIsBlockchainLoading(true);
+    setError(null);
+
+    try {
+      const isInitiator = user.id === contract.initiator_id;
+
+      // Check if already on blockchain
+      let onChain = false;
+      try {
+        if (contract.blockchain_hash) {
+          // Verify persistence
+          onChain = true;
+        }
+      } catch (e) { console.log("Not on chain yet"); }
+
+      let txHash;
+
+      if (isInitiator && !contract.blockchain_hash) {
+        // Initiator registers and signs
+        const counterpartyAddress = prompt("Veuillez entrer l'adresse Ethereum de la contrepartie:");
+        if (!counterpartyAddress) {
+          setIsBlockchainLoading(false);
+          return;
+        }
+
+        // Register
+        console.log("Registering on blockchain...");
+        await registerOnBlockchain(contract.id, "hash-" + Date.now(), counterpartyAddress); // Using simplified hash for demo
+
+        // Sign
+        console.log("Signing on blockchain...");
+        txHash = await signOnBlockchain(contract.id);
+
+      } else {
+        // Counterparty or subsequent sign
+        console.log("Signing on blockchain...");
+        txHash = await signOnBlockchain(contract.id);
+      }
+
+      // Update backend
+      if (txHash) {
+        await fetch(`/api/contracts/${contract.id}/blockchain-hash`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ txHash })
+        });
+
+        setBlockchainHash(txHash);
+        setSuccessMessage("Contrat signé sur la blockchain avec succès! Hash: " + txHash);
+        // Refresh contract
+        fetchContract();
+      }
+
+    } catch (err: any) {
+      console.error("Blockchain error:", err);
+      setError("Erreur blockchain: " + (err.message || err));
+    } finally {
+      setIsBlockchainLoading(false);
+    }
+  };
+
   const handleLogout = async () => {
     try {
       await fetch("/auth/logout", {
@@ -624,19 +691,18 @@ export default function ContractViewPage() {
             {/* Status and Agreement Info */}
             <div className="flex items-center gap-4 flex-wrap">
               <span
-                className={`px-4 py-2 rounded-full text-sm font-semibold ${
-                  isSigned
-                    ? "bg-green-500 text-white"
-                    : contract.status === "pending_counterparty"
+                className={`px-4 py-2 rounded-full text-sm font-semibold ${isSigned
+                  ? "bg-green-500 text-white"
+                  : contract.status === "pending_counterparty"
                     ? "bg-yellow-500 text-white"
                     : "bg-gray-500 text-white"
-                }`}
+                  }`}
               >
                 {isSigned
                   ? "✓ Signé"
                   : contract.status === "pending_counterparty"
-                  ? "En attente"
-                  : "Brouillon"}
+                    ? "En attente"
+                    : "Brouillon"}
               </span>
 
               <div className="flex items-center gap-4 text-sm text-purple-200">
@@ -719,6 +785,17 @@ export default function ContractViewPage() {
                 <div className="px-6 py-3 bg-green-500/20 border border-green-500/50 text-green-200 rounded-lg font-semibold">
                   ✓ Contrat signé par les deux parties
                 </div>
+              )}
+
+              {isSigned && (
+                <button
+                  onClick={handleBlockchainSign}
+                  disabled={isBlockchainLoading || (!!contract.blockchain_hash && !!blockchainHash)}
+                  className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 flex items-center gap-2"
+                >
+                  <Wallet size={20} />
+                  {isBlockchainLoading ? "Signature en cours..." : contract.blockchain_hash ? "Voir sur Blockchain (Signé)" : "Signer sur Blockchain"}
+                </button>
               )}
             </div>
           </div>

@@ -13,8 +13,8 @@ export class ContractsService {
     this.supabase = createClient(
       process.env.SUPABASE_URL || '',
       process.env.SUPABASE_SERVICE_ROLE_KEY ||
-        process.env.SUPABASE_ANON_KEY ||
-        '',
+      process.env.SUPABASE_ANON_KEY ||
+      '',
     );
   }
 
@@ -117,7 +117,7 @@ export class ContractsService {
 
     // Set template_id reference
     const contract = await this.createContract(contractPayload);
-    
+
     // Update contract with template_id
     await this.supabase
       .from('contracts')
@@ -150,8 +150,8 @@ export class ContractsService {
       (payload.initiatorAgreed && payload.counterpartyAgreed
         ? 'fully_signed'
         : payload.initiatorAgreed
-        ? 'pending_counterparty'
-        : 'draft');
+          ? 'pending_counterparty'
+          : 'draft');
 
     // Save in contracts table (before signing)
     const { data, error } = await this.supabase
@@ -298,7 +298,7 @@ export class ContractsService {
     received: (Contract | SignedContract)[];
   }> {
     console.log(`[ContractsService] getUserContracts called for userId: ${userId}`);
-    
+
     // Get unsigned contracts from contracts table
     const [unsignedCreated, unsignedReceived] = await Promise.all([
       this.getContractsByInitiator(userId),
@@ -327,7 +327,7 @@ export class ContractsService {
 
   async getContractById(id: string): Promise<Contract | SignedContract> {
     console.log(`[ContractsService] getContractById called with id: ${id} (type: ${typeof id}, length: ${id?.length})`);
-    
+
     // Trim and validate ID
     const trimmedId = id?.trim();
     if (!trimmedId) {
@@ -344,9 +344,9 @@ export class ContractsService {
     console.log(`[ContractsService] Contracts table query result:`, {
       hasData: !!contract,
       contractId: contract?.id,
-      error: contractError ? { 
-        code: contractError.code, 
-        message: contractError.message, 
+      error: contractError ? {
+        code: contractError.code,
+        message: contractError.message,
         details: contractError.details,
         hint: contractError.hint
       } : null
@@ -372,9 +372,9 @@ export class ContractsService {
     console.log(`[ContractsService] Signed_contracts table query result:`, {
       hasData: !!signedContract,
       contractId: signedContract?.id,
-      error: signedError ? { 
-        code: signedError.code, 
-        message: signedError.message, 
+      error: signedError ? {
+        code: signedError.code,
+        message: signedError.message,
         details: signedError.details,
         hint: signedError.hint
       } : null
@@ -395,7 +395,7 @@ export class ContractsService {
       .from('contracts')
       .select('id')
       .limit(5);
-    
+
     console.log(`[ContractsService] Sample contract IDs in database:`, allContracts?.map(c => c.id));
 
     // Not found in either table
@@ -509,7 +509,7 @@ export class ContractsService {
 
     if (initiatorAgreed && counterpartyAgreed) {
       updates.status = 'fully_signed';
-      
+
       // Update the contract
       const { data: updatedContract, error: updateError } = await this.supabase
         .from('contracts')
@@ -533,7 +533,7 @@ export class ContractsService {
       }
     } else {
       updates.status = 'pending_counterparty';
-      
+
       const { data: updatedContract, error: updateError } = await this.supabase
         .from('contracts')
         .update(updates)
@@ -546,6 +546,32 @@ export class ContractsService {
       }
 
       return updatedContract as Contract;
+    }
+  }
+
+  async updateContractTxHash(id: string, txHash: string): Promise<void> {
+    const { error } = await this.supabase
+      .from('contracts')
+      .update({
+        blockchain_hash: txHash,
+        status: 'fully_signed',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id);
+
+    if (error) {
+      // Try signed_contracts if not found in contracts
+      const { error: signedError } = await this.supabase
+        .from('signed_contracts')
+        .update({
+          blockchain_hash: txHash,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id);
+
+      if (signedError) {
+        throw new Error(`Failed to update blockchain hash: ${error.message} / ${signedError.message}`);
+      }
     }
   }
 }
