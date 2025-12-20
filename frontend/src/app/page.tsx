@@ -89,7 +89,7 @@ function HeroSection() {
           <div className="relative w-full max-w-md h-96 rounded-2xl overflow-hidden border border-purple-500/30 shadow-2xl">
             {/* Gradient overlay for better text visibility if needed */}
             <div className="absolute inset-0 bg-gradient-to-tr from-purple-500/20 to-indigo-500/20 pointer-events-none z-10"></div>
-            
+
             {/* Video Element */}
             <video
               ref={videoRef}
@@ -206,7 +206,13 @@ function LiveActivitySection() {
         <div className="bg-gradient-to-br from-gray-900 to-purple-900 rounded-3xl p-8 md:p-12 shadow-2xl">
           <div className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">Platform Activity & Live Crypto Prices</h2>
-            <p className="text-purple-200">Real-time blockchain data and cryptocurrency market updates</p>
+            <p className="text-purple-200 text-lg max-w-3xl mx-auto mb-8 leading-relaxed">
+              Experience the power of real-time market intuition with our integrated Live Crypto API.
+              Powered by industry-leading data providers like CoinGecko, our platform feeds you up-to-the-second
+              price updates for major assets including Bitcoin, Ethereum, BNB, and Solana.
+              Whether you are executing smart contracts or analyzing market trends, our seamless API integration
+              ensures you always have the most accurate and timely blockchain data at your fingertips.
+            </p>
           </div>
 
           {/* Live Crypto Prices */}
@@ -421,9 +427,9 @@ function RoadmapSection() {
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-2xl font-bold text-white">{item.phase}</h3>
                 <span className={`px-4 py-1 rounded-full text-sm font-semibold ${item.status === 'Completed' ? 'bg-green-500/20 text-green-400' :
-                    item.status === 'In Progress' ? 'bg-blue-500/20 text-blue-400' :
-                      item.status === 'Upcoming' ? 'bg-yellow-500/20 text-yellow-400' :
-                        'bg-purple-500/20 text-purple-400'
+                  item.status === 'In Progress' ? 'bg-blue-500/20 text-blue-400' :
+                    item.status === 'Upcoming' ? 'bg-yellow-500/20 text-yellow-400' :
+                      'bg-purple-500/20 text-purple-400'
                   }`}>
                   {item.status}
                 </span>

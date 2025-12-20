@@ -94,3 +94,39 @@ func (e *EmailService) SendVerificationEmail(toEmail, code string) error {
 	fmt.Println("Resend email ID:", sent.Id)
 	return nil
 }
+
+func (e *EmailService) SendReportEmail(reportType, reportTarget, description, reporterEmail string) error {
+	ctx := context.TODO()
+
+	htmlContent := fmt.Sprintf(`
+		<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
+			<h2 style="color: #4c1d95;">New Report Received</h2>
+			<div style="background-color: #f3e8ff; padding: 20px; border-radius: 8px; border: 1px solid #d8b4fe;">
+				<p><strong>Type:</strong> %s</p>
+				<p><strong>Target:</strong> %s</p>
+				<p><strong>Reported By:</strong> %s</p>
+				<div style="margin-top: 20px;">
+					<strong>Description:</strong>
+					<p style="white-space: pre-wrap; background-color: white; padding: 15px; border-radius: 4px; border: 1px solid #e9d5ff;">%s</p>
+				</div>
+			</div>
+			<p style="font-size: 12px; color: #666; margin-top: 20px;">This report was sent from the SmartEther platform.</p>
+		</div>
+	`, reportType, reportTarget, reporterEmail, description)
+
+	params := &resend.SendEmailRequest{
+		From:    "SmartEther Reports <reports@smartether.app>", // Or use no-reply@
+		To:      []string{"lenovo.mahersi@gmail.com"},
+		Subject: fmt.Sprintf("New Report: %s - %s", reportType, reportTarget),
+		Html:    htmlContent,
+	}
+
+	sent, err := e.Client.Emails.SendWithContext(ctx, params)
+	if err != nil {
+		return fmt.Errorf("failed to send report email: %v", err)
+	}
+
+	fmt.Println("Report email sent to admin")
+	fmt.Println("Resend email ID:", sent.Id)
+	return nil
+}

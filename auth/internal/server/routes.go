@@ -102,6 +102,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 	r.Get("/api/me", s.getCurrentUser)
 	r.Get("/api/users/search", s.searchUsersHandler)
 	r.Get("/api/users/{id}", s.getUserByIdHandler)
+	r.Post("/api/report", s.reportHandler)
 
 	return r
 }
@@ -528,4 +529,48 @@ func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 	w.Write(response)
+}
+
+type ReportRequest struct {
+	Type        string `json:"type"`   // "contract" or "user"
+	Target      string `json:"target"` // Contract ID or User Name/ID
+	Description string `json:"description"`
+}
+
+func (s *Server) reportHandler(w http.ResponseWriter, r *http.Request) {
+	// Verify user session
+	cookie, err := r.Cookie("session_token")
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "You must be logged in to report")
+		return
+	}
+
+	user, err := s.db.GetUserBySessionToken(cookie.Value)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Invalid session")
+		return
+	}
+
+	var req ReportRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	if req.Type == "" || req.Target == "" || req.Description == "" {
+		respondWithError(w, http.StatusBadRequest, "All fields are required")
+		return
+	}
+
+	emailService := database.NewEmailService()
+	err = emailService.SendReportEmail(req.Type, req.Target, req.Description, user.Email)
+	if err != nil {
+		log.Println("Failed to send report email:", err)
+		respondWithError(w, http.StatusInternalServerError, "Failed to submit report")
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, map[string]string{
+		"message": "Report submitted successfully",
+	})
 }
