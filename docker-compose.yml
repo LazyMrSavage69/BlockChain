@@ -51,7 +51,7 @@ services:
       NODE_ENV: production
       AUTH_SERVICE_URL: "http://auth-service:3060"
       GATEWAY_URL: "http://gateway:8000"
-      STRIPE_WEBHOOK_SECRET: "whsec_c7039dcf32d33d64a129128675826ef7e12845729a49f8985095613d5c999646"
+      STRIPE_WEBHOOK_SECRET: "${STRIPE_WEBHOOK_SECRET}"
     networks:
       - miniprojet-net
 
