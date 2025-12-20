@@ -5,6 +5,7 @@ import { ContractsModule } from './contracts/contracts.module';
 import { SubscriptionModule } from './subscription/subscription.module';
 import { FriendsModule } from './friends/friends.module';
 import { MessagesModule } from './messages/messages.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { MessagesModule } from './messages/messages.module';
     SubscriptionModule,
     FriendsModule,
     MessagesModule,
+    DashboardModule,
   ],
 })
-export class AppModule {}
+export class AppModule { }

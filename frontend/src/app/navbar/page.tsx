@@ -26,7 +26,7 @@ export default function Navbar({ user, onLogout }: NavbarProps) {
 
   const loggedLinks = [
     { name: "Avatar", href: "/avatar" },
-    { name: "User Info", href: "/users" },
+    { name: "Dashboard", href: "/dashboard" },
     { name: "MarketPlace", href: "/marketplace" },
     { name: "Contracts", href: "/contractspage" },
     { name: "Subscription", href: "/subscription" },

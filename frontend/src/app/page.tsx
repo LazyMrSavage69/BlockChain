@@ -766,10 +766,31 @@ function Footer() {
 
 // Main Page Component
 export default function Page() {
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    fetch('/api/me', { credentials: 'include' })
+      .then(res => {
+        if (res.ok) return res.json();
+        return null;
+      })
+      .then(data => setUser(data))
+      .catch(err => console.error('Error checking auth:', err));
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/auth/logout', { method: 'POST', credentials: 'include' });
+      setUser(null);
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
+
   return (
     <main className="min-h-screen bg-gradient-to-b from-indigo-950 to-black">
-      {/* Use Navbar component with null user to show not logged in state */}
-      <Navbar user={null} />
+      {/* Dynamic Navbar */}
+      <Navbar user={user} onLogout={handleLogout} />
 
       <div className="pt-16"> {/* Padding to account for fixed navbar */}
         <HeroSection />

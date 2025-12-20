@@ -463,6 +463,10 @@ func main() {
 	mux.HandleFunc("/messages", createBackendProxyHandler(backendServiceURL))
 	mux.HandleFunc("/messages/", createBackendProxyHandler(backendServiceURL))
 
+	// --- DASHBOARD SERVICE (NestJS) ---
+	mux.HandleFunc("/api/dashboard", createBackendProxyHandler(backendServiceURL))
+	mux.HandleFunc("/api/dashboard/", createBackendProxyHandler(backendServiceURL))
+
 	handler := corsMiddleware(mux)
 
 	log.Printf("✅ Gateway running on :%s", port)

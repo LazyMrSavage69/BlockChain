@@ -35,7 +35,7 @@ export default function ReportUser() {
             setMessage({ type: 'success', text: 'Report submitted successfully. We will review it shortly.' });
             setUserName('');
             setDescription('');
-            setTimeout(() => router.push('/'), 3000);
+            setTimeout(() => router.back(), 3000);
         } catch (error) {
             setMessage({ type: 'error', text: 'Failed to submit report. Please try again.' });
         } finally {
