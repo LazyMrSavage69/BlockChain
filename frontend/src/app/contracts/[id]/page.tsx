@@ -217,6 +217,75 @@ function RichTextEditor({
   );
 }
 
+function InviteCounterparty({ onInvite }: { onInvite: (userId: number) => void }) {
+  const [query, setQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const [result, setResult] = useState<User | null>(null);
+  const [searchError, setSearchError] = useState<string | null>(null);
+
+  const handleSearch = async () => {
+    if (!query.trim()) return;
+    setIsSearching(true);
+    setSearchError(null);
+    setResult(null);
+    try {
+      const res = await fetch(`/api/users/search?query=${encodeURIComponent(query)}`);
+      if (res.ok) {
+        const data = await res.json();
+        const found = data.users?.[0] || data.user;
+        if (found) {
+          setResult(found);
+        } else {
+          setSearchError("Aucun utilisateur trouvé.");
+        }
+      } else {
+        setSearchError("Erreur lors de la recherche.");
+      }
+    } catch (e) {
+      setSearchError("Erreur réseau.");
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-2">
+        <input
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          placeholder="Rechercher par nom ou email..."
+          className="flex-1 px-4 py-2 rounded-lg bg-indigo-950/50 border border-purple-500/30 text-white focus:outline-none focus:border-purple-500"
+        />
+        <button
+          onClick={handleSearch}
+          disabled={isSearching}
+          className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold disabled:opacity-50"
+        >
+          {isSearching ? '...' : 'Rechercher'}
+        </button>
+      </div>
+
+      {searchError && <p className="text-red-300 text-sm">{searchError}</p>}
+
+      {result && (
+        <div className="flex items-center justify-between p-3 bg-indigo-950/30 rounded-lg border border-purple-500/20">
+          <div>
+            <p className="font-bold text-white">{result.name}</p>
+            <p className="text-sm text-purple-300">{result.email}</p>
+          </div>
+          <button
+            onClick={() => onInvite(result.id)}
+            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-semibold"
+          >
+            Inviter
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ContractViewPage() {
   const router = useRouter();
   const params = useParams();
@@ -719,16 +788,45 @@ export default function ContractViewPage() {
             </div>
           </div>
 
-          {/* Messages */}
           {error && (
-            <div className="bg-red-900/50 border border-red-500/50 text-red-200 rounded-lg p-4">
+            <div className="bg-red-900/50 border border-red-500/50 text-red-200 rounded-lg p-4 mb-4">
               {error}
             </div>
           )}
 
           {successMessage && (
-            <div className="bg-green-900/50 border border-green-500/50 text-green-200 rounded-lg p-4">
+            <div className="bg-green-900/50 border border-green-500/50 text-green-200 rounded-lg p-4 mb-4">
               {successMessage}
+            </div>
+          )}
+
+          {/* Invitation Section (if no counterparty) */}
+          {isInitiator && !contract.counterparty_id && (
+            <div className="bg-gradient-to-br from-indigo-900/60 to-purple-900/60 border border-indigo-500/30 rounded-2xl shadow-xl p-6 mb-6">
+              <h3 className="text-xl font-bold text-white mb-4">Inviter une contrepartie</h3>
+              <p className="text-purple-200 mb-4">
+                Ce contrat est actuellement un brouillon personnel. Pour le rendre officiel, invitez une autre partie à le signer.
+              </p>
+
+              <InviteCounterparty onInvite={async (userId) => {
+                try {
+                  const res = await fetch(`/api/contracts/${contractId}/invite`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ counterpartyId: userId })
+                  });
+                  const data = await res.json();
+                  if (res.ok) {
+                    setSuccessMessage(`Utilisateur invité avec succès!`);
+                    fetchContract(); // Reload
+                  } else {
+                    setError(data.message || 'Erreur lors de l\'invitation');
+                  }
+                } catch (err) {
+                  setError('Erreur réseau lors de l\'invitation');
+                }
+              }} />
             </div>
           )}
 

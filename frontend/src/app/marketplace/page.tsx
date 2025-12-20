@@ -240,7 +240,7 @@ const TemplateCard = memo<{ template: ContractTemplate; onClick: () => void }>(
           </div>
         </div>
       </div>
-      
+
       <div className="p-4 bg-black">
         <div className="flex items-center justify-between mb-1">
           <h3 className="font-semibold text-white">{template.title}</h3>
@@ -258,6 +258,162 @@ const TemplateCard = memo<{ template: ContractTemplate; onClick: () => void }>(
 
 TemplateCard.displayName = 'TemplateCard';
 
+// Publish Template Modal
+const PublishTemplateModal = memo<{ onClose: () => void; onSuccess: () => void; user: User }>(({ onClose, onSuccess, user }) => {
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    price: 0,
+    category: 'General',
+    content: ''
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      // Split content into basic clauses approximately by newlines for now
+      // Ideally we'd use parsing logic or the AI wrapper, but user asked for simple upload/blueprint
+      const clauses = formData.content.split('\n\n').filter(Boolean).map((text, i) => ({
+        title: `Clause ${i + 1}`,
+        body: text.trim()
+      }));
+
+      const payload = {
+        title: formData.title,
+        description: formData.description,
+        price: Number(formData.price),
+        category: formData.category,
+        example: {
+          clauses: clauses,
+          raw_text: formData.content
+        },
+        schema: {
+          clauses: clauses
+        },
+        creatorId: user.id
+      };
+
+      const res = await fetch('/api/contracts/templates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to create template');
+      }
+
+      onSuccess();
+      onClose();
+    } catch (err) {
+      console.error(err);
+      setError('Erreur lors de la création du template');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+      <div className="bg-gray-900 rounded-2xl w-full max-w-2xl border border-gray-700 shadow-2xl overflow-hidden">
+        <div className="bg-gradient-to-r from-purple-600 to-indigo-600 p-6 flex justify-between items-center">
+          <h2 className="text-2xl font-bold text-white">Vendre un Template</h2>
+          <button onClick={onClose} className="text-white hover:bg-white/20 rounded-full p-2">
+            <X size={24} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+          {error && <div className="p-3 bg-red-900/50 text-red-200 rounded-lg">{error}</div>}
+
+          <div>
+            <label className="block text-gray-300 mb-1">Titre</label>
+            <input
+              required
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-purple-500"
+              value={formData.title}
+              onChange={e => setFormData({ ...formData, title: e.target.value })}
+              placeholder="Ex: Contrat de Freelance"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-gray-300 mb-1">Prix ($)</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                required
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-purple-500"
+                value={formData.price}
+                onChange={e => setFormData({ ...formData, price: Number(e.target.value) })}
+              />
+            </div>
+            <div>
+              <label className="block text-gray-300 mb-1">Catégorie</label>
+              <input
+                required
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-purple-500"
+                value={formData.category}
+                onChange={e => setFormData({ ...formData, category: e.target.value })}
+                placeholder="Ex: Business, Legal..."
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-gray-300 mb-1">Description</label>
+            <textarea
+              required
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-purple-500 min-h-[80px]"
+              value={formData.description}
+              onChange={e => setFormData({ ...formData, description: e.target.value })}
+              placeholder="Décrivez ce que couvre ce contrat..."
+            />
+          </div>
+
+          <div>
+            <label className="block text-gray-300 mb-1">Contenu du Contrat (Blueprint)</label>
+            <p className="text-sm text-gray-400 mb-2">Copiez-collez le texte de votre contrat ici. Séparez les clauses par des sauts de ligne doubles.</p>
+            <textarea
+              required
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-purple-500 min-h-[200px] font-mono text-sm"
+              value={formData.content}
+              onChange={e => setFormData({ ...formData, content: e.target.value })}
+              placeholder="ARTICLE 1: DEFINITIONS..."
+            />
+          </div>
+
+          <div className="pt-4 flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-6 py-2 rounded-lg bg-gray-700 text-white hover:bg-gray-600"
+            >
+              Annuler
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="px-6 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 font-semibold disabled:opacity-50"
+            >
+              {isSubmitting ? 'Publication...' : 'Publier le Template'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+});
+PublishTemplateModal.displayName = 'PublishTemplateModal';
+
 const Marketplace: React.FC = () => {
   const router = useRouter();
   const [templates, setTemplates] = useState<ContractTemplate[]>([]);
@@ -266,39 +422,38 @@ const Marketplace: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedTemplate, setSelectedTemplate] = useState<ContractTemplate | null>(null);
   const [user, setUser] = useState<User | null>(null);
+  const [userPlan, setUserPlan] = useState<string>('free'); // Default to free
+  const [showPublishModal, setShowPublishModal] = useState(false);
 
   useEffect(() => {
     fetchUser();
   }, []);
 
-  useEffect(() => {
-    const fetchTemplates = async () => {
-      try {
-        setLoading(true);
-        const response = await fetch('/api/contracts/templates', {
-          credentials: 'include',
-        });
-        
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          console.error('Error fetching templates:', response.status, errorData);
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-      
-        const data: ContractTemplate[] = await response.json();
-        console.log('[Marketplace] Fetched templates:', data.length, data);
-        setTemplates(data);
-      } catch (error) {
-        console.error('Error fetching templates:', error);
-        // Set empty array on error to show empty state
-        setTemplates([]);
-      } finally {
-        setLoading(false);
+  const fetchTemplates = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/contracts/templates', {
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-    };
-    
-    fetchTemplates();
+
+      const data: ContractTemplate[] = await response.json();
+      console.log('[Marketplace] Fetched templates:', data.length, data);
+      setTemplates(data);
+    } catch (error) {
+      console.error('Error fetching templates:', error);
+      setTemplates([]);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchTemplates();
+  }, [fetchTemplates]);
 
 
   const fetchUser = async () => {
@@ -310,12 +465,33 @@ const Marketplace: React.FC = () => {
       if (response.ok) {
         const userData = await response.json();
         setUser(userData);
+
+        // Fetch subscription plan
+        if (userData.email) {
+          try {
+            const subResponse = await fetch('/api/subscriptions/usage/check', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({ userEmail: userData.email })
+            });
+            if (subResponse.ok) {
+              const subData = await subResponse.json();
+              if (subData.success && subData.data?.planId) {
+                console.log('[Marketplace] User plan:', subData.data.planId);
+                setUserPlan(subData.data.planId);
+              }
+            }
+          } catch (e) {
+            console.error('Failed to fetch plan:', e);
+          }
+        }
       } else {
-        router.push('/login');
+        // router.push('/login'); // Allow viewing without login?
       }
     } catch (err) {
       console.error('Auth error:', err);
-      router.push('/login');
+      // router.push('/login');
     } finally {
       setIsLoading(false);
     }
@@ -347,9 +523,33 @@ const Marketplace: React.FC = () => {
 
     // If template is free, create contract directly
     if (template.price === 0) {
-      // TODO: Create contract from template directly
-      console.log('Creating free contract from template:', template.id);
-      alert(`Création du contrat depuis le template: ${template.title}`);
+      // Direct creation
+      try {
+        const response = await fetch(`/api/contracts/templates/${template.id}/checkout`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            userEmail: user.email,
+            userId: user.id,
+            successUrl: `${window.location.origin}/contractspage`, // Redirect to my contracts
+            cancelUrl: `${window.location.origin}/marketplace`,
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          // If direct success (mock or free)
+          if (data.success && data.data?.checkoutUrl && !data.data.checkoutUrl.includes('stripe')) {
+            // It's a redirect to successUrl usually, but here we might just go to dashboard
+            router.push('/contractspage');
+          } else if (data.data?.checkoutUrl) {
+            window.location.href = data.data.checkoutUrl;
+          }
+        } else {
+          alert('Erreur lors de la création');
+        }
+      } catch (e) { console.error(e); }
       return;
     }
 
@@ -400,15 +600,28 @@ const Marketplace: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-950 via-purple-900 to-indigo-950">
       <Navbar user={user} onLogout={handleLogout} />
-      
+
       <div className="pt-20 px-8 pb-8">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-12">
+          <div className="text-center mb-12 relative">
             <h1 className="text-6xl font-bold mb-4 text-white">Marketplace</h1>
             <p className="text-gray-400 text-lg mb-8">
               The best templates, plugins and<br />components from the community.
             </p>
-            
+
+            {/* Publish Button - CREATOR ONLY */}
+            {user && userPlan === 'creator' && (
+              <div className="absolute top-0 right-0">
+                <button
+                  onClick={() => setShowPublishModal(true)}
+                  className="px-6 py-2 bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white rounded-full font-bold shadow-lg transition-all flex items-center gap-2 animate-bounce"
+                >
+                  <Star size={18} className="text-yellow-300" />
+                  Vendre un Template
+                </button>
+              </div>
+            )}
+
             <div className="max-w-md mx-auto relative">
               <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
               <input
@@ -453,6 +666,16 @@ const Marketplace: React.FC = () => {
             template={selectedTemplate}
             onClose={handleCloseModal}
             onModify={handleModify}
+          />
+        )}
+
+        {showPublishModal && user && (
+          <PublishTemplateModal
+            user={user}
+            onClose={() => setShowPublishModal(false)}
+            onSuccess={() => {
+              fetchTemplates();
+            }}
           />
         )}
       </div>

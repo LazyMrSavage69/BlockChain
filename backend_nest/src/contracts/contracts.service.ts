@@ -89,42 +89,62 @@ export class ContractsService {
   async createContractFromTemplate(
     templateId: string,
     buyerId: number,
-    sellerId: number, // creator_id from template
+    sellerId: number, // creator_id from template - Unused for contract parties now
   ): Promise<Contract> {
+    console.log(`[ContractsService] Creating contract from template ${templateId} for buyer ${buyerId}`);
+
     // Get template
     const template = await this.getTemplateById(templateId);
     if (!template) {
       throw new Error('Template not found');
     }
 
+    console.log('[ContractsService] DEBUG Template Structure:', JSON.stringify(template, null, 2));
+
     // Extract contract data from template
+    // Templates might have 'example' or 'schema' fields with clause data
     const example = template.example || {};
     const schema = template.schema || {};
 
-    // Create contract with buyer as counterparty and seller as initiator
-    const contractPayload: CreateSignedContractDto = {
-      initiatorId: sellerId, // Template creator
-      counterpartyId: buyerId, // Buyer
-      title: template.title || 'Contract from Template',
-      summary: template.description || '',
-      clauses: example.clauses || schema.clauses || [],
-      suggestions: example.suggestions || [],
-      rawText: example.raw_text || null,
-      initiatorAgreed: false,
-      counterpartyAgreed: false,
-      status: 'draft',
-    };
+    let clauses = [];
+    if (example.clauses && Array.isArray(example.clauses)) {
+      clauses = example.clauses;
+    } else if (schema.clauses && Array.isArray(schema.clauses)) {
+      clauses = schema.clauses;
+    } else if (schema.properties && schema.properties.clauses) {
+      // Try to extract from schema properties if structured that way
+      clauses = [];
+    }
 
-    // Set template_id reference
-    const contract = await this.createContract(contractPayload);
+    console.log(`[ContractsService] Extracted ${clauses.length} clauses from template`);
 
-    // Update contract with template_id
-    await this.supabase
+    // Create contract with buyer as initiator. Counterparty is NULL initially.
+    const { data: contract, error } = await this.supabase
       .from('contracts')
-      .update({ template_id: templateId })
-      .eq('id', contract.id);
+      .insert({
+        initiator_id: buyerId,
+        counterparty_id: null,
+        owner_id: buyerId,
+        title: template.title || 'Contract from Template',
+        summary: template.description || '',
+        clauses: clauses,
+        suggestions: example.suggestions || [],
+        raw_text: example.raw_text || null,
+        initiator_agreed: false,
+        counterparty_agreed: false,
+        status: 'draft',
+        template_id: templateId,
+        metadata: { source: 'template', original_price: (template as any).price },
+      })
+      .select()
+      .single();
 
-    return { ...contract, template_id: templateId } as Contract;
+    if (error) {
+      console.error('Error creating contract from template:', error);
+      throw new Error(error.message);
+    }
+
+    return contract as Contract;
   }
 
   async updateMarketplaceTransaction(
@@ -547,6 +567,30 @@ export class ContractsService {
 
       return updatedContract as Contract;
     }
+  }
+
+  async createTemplate(payload: any): Promise<any> {
+    const { data, error } = await this.supabase
+      .from('contract_templates')
+      .insert({
+        title: payload.title,
+        description: payload.description,
+        price: payload.price,
+        category: payload.category || 'General',
+        example: payload.example || {},
+        schema: payload.schema || {},
+        visibility: true,
+        // creator: payload.creatorId // If column exists, otherwise we skip or store in metadata
+        // For now we assume the table might not have creator_id column, so we just insert basic info
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating template:', error);
+      throw new Error(error.message);
+    }
+    return data;
   }
 
   async updateContractTxHash(id: string, txHash: string): Promise<void> {
