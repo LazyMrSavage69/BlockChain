@@ -49,7 +49,6 @@ export default function AskAiPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [contract, setContract] = useState<GeneratedContract>(DEFAULT_CONTRACT);
   const [creatorAgreed, setCreatorAgreed] = useState(false);
-  const [counterpartyAgreed, setCounterpartyAgreed] = useState(false);
   const [counterpartyQuery, setCounterpartyQuery] = useState("");
   const [counterpartyResult, setCounterpartyResult] = useState<User | null>(null);
   const [isSearchingCounterparty, setIsSearchingCounterparty] = useState(false);
@@ -83,11 +82,10 @@ export default function AskAiPage() {
       !contract ||
       contract.clauses.length === 0 ||
       !creatorAgreed ||
-      !counterpartyAgreed ||
       !counterpartyResult ||
       pendingFinalize
     );
-  }, [contract, creatorAgreed, counterpartyAgreed, counterpartyResult, pendingFinalize]);
+  }, [contract, creatorAgreed, counterpartyResult, pendingFinalize]);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -176,7 +174,6 @@ export default function AskAiPage() {
     setSuccessMessage(null);
     setContract(DEFAULT_CONTRACT);
     setCreatorAgreed(false);
-    setCounterpartyAgreed(false);
     setCounterpartyResult(null);
 
     try {
@@ -266,10 +263,9 @@ export default function AskAiPage() {
     setSuccessMessage(null);
 
     try {
-      const status =
-        creatorAgreed && counterpartyAgreed
-          ? "fully_signed"
-          : "pending_counterparty";
+      // À la création, on ne marque jamais le contrat comme "fully_signed".
+      // Seul le créateur peut marquer son accord initial; la contrepartie signera plus tard.
+      const status = "pending_counterparty";
 
       const response = await fetch("/api/contracts/sign", {
         method: "POST",
@@ -285,7 +281,7 @@ export default function AskAiPage() {
           suggestions: contract.suggestions ?? [],
           rawText: contract.rawText ?? null,
           initiatorAgreed: creatorAgreed,
-          counterpartyAgreed,
+          counterpartyAgreed: false,
           status,
           userEmail: user.email,
         }),
@@ -300,11 +296,7 @@ export default function AskAiPage() {
       const contractId = result?.id ?? result?.data?.id ?? result?.contract?.id;
 
       setSuccessMessage(
-        `${
-          status === "fully_signed"
-            ? "Contrat enregistré et signé par les deux parties."
-            : "Contrat sauvegardé. La contrepartie doit encore signer."
-        }${contractId ? ` (ID: ${contractId})` : ""}`,
+        `Contrat sauvegardé. La contrepartie doit encore signer.${contractId ? ` (ID: ${contractId})` : ""}`,
       );
     } catch (err) {
       console.error("Erreur de finalisation:", err);
@@ -707,16 +699,9 @@ export default function AskAiPage() {
                     <p className="text-purple-100 font-semibold">
                       Invité : {counterpartyResult.name}
                     </p>
-
-                    <label className="flex items-center gap-3 text-purple-100 mt-3">
-                      <input
-                        type="checkbox"
-                        checked={counterpartyAgreed}
-                        onChange={(event) => setCounterpartyAgreed(event.target.checked)}
-                        className="w-5 h-5 rounded border-purple-500/40 text-purple-500 focus:ring-purple-400 focus:outline-none"
-                      />
-                      La contrepartie a confirmé accepter ce projet (à consigner via l’API backend).
-                    </label>
+                    <p className="text-purple-200 mt-2">
+                      Une invitation sera envoyée pour que la contrepartie lise et signe le contrat dans son espace.
+                    </p>
                   </div>
                 )}
               </div>
@@ -731,10 +716,7 @@ export default function AskAiPage() {
               >
                 {pendingFinalize ? "Préparation..." : "Finaliser et envoyer pour signature"}
               </button>
-              <p className="text-sm text-purple-200 mt-3">
-                Cette action devra, côté backend, créer l’enregistrement du contrat et déclencher la collecte des deux
-                signatures numériques.
-              </p>
+              {/* Texte informatif supprimé à la demande: pas de mention de consignation backend ni déclenchement signatures ici */}
             </div>
           </section>
 

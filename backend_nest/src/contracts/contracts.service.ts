@@ -18,19 +18,46 @@ export class ContractsService {
     );
   }
 
-  async findAll(): Promise<any[]> {
-    // Get all templates where visibility is true or null (default to visible)
-    const { data, error } = await this.supabase
+  async findAll(userId?: number): Promise<any[]> {
+    console.log(`[ContractsService] Finding all templates (userId: ${userId})`);
+
+    // Get all templates
+    const { data: templates, error } = await this.supabase
       .from('contract_templates')
       .select('*')
-      .or('visibility.is.null,visibility.eq.true'); // Show templates where visibility is null or true
+      .or('visibility.is.null,visibility.eq.true');
 
     if (error) {
       console.error('Error fetching templates:', error);
       throw new Error(error.message);
     }
-    console.log(`[ContractsService] Found ${data?.length || 0} templates`);
-    return (data || []) as any[];
+
+    // If no user, return templates as is
+    if (!userId) {
+      return (templates || []) as any[];
+    }
+
+    // If user provided, check which ones they own (have a contract from)
+    // We check purely based on if they have a contract with this template_id
+    // This covers both free (direct use) and paid (bought)
+    const { data: userContracts, error: contractError } = await this.supabase
+      .from('contracts')
+      .select('template_id')
+      .eq('owner_id', userId)
+      .not('template_id', 'is', null);
+
+    if (contractError) {
+      console.error('Error checking user contracts:', contractError);
+      // Return templates without ownership info on error
+      return (templates || []) as any[];
+    }
+
+    const ownedTemplateIds = new Set(userContracts?.map(c => c.template_id) || []);
+
+    return templates?.map(t => ({
+      ...t,
+      isOwned: ownedTemplateIds.has(t.id)
+    })) || [];
   }
 
   async findOne(id: string): Promise<Contract> {
@@ -107,13 +134,19 @@ export class ContractsService {
     const schema = template.schema || {};
 
     let clauses = [];
-    if (example.clauses && Array.isArray(example.clauses)) {
+    if (example.clauses && Array.isArray(example.clauses) && example.clauses.length > 0) {
       clauses = example.clauses;
-    } else if (schema.clauses && Array.isArray(schema.clauses)) {
+    } else if (schema.clauses && Array.isArray(schema.clauses) && schema.clauses.length > 0) {
       clauses = schema.clauses;
-    } else if (schema.properties && schema.properties.clauses) {
-      // Try to extract from schema properties if structured that way
-      clauses = [];
+    } else if (example.raw_text) {
+      // Fallback: Try to parse raw_text if clauses are missing
+      // Simple parse by splitting on newlines or double newlines
+      const text = example.raw_text;
+      const paragraphs = text.split(/\n\s*\n/); // Split by empty lines
+      clauses = paragraphs.map((p, i) => ({
+        title: `Clause ${i + 1}`,
+        body: p.trim()
+      })).filter(c => c.body.length > 0);
     }
 
     console.log(`[ContractsService] Extracted ${clauses.length} clauses from template`);
@@ -165,13 +198,9 @@ export class ContractsService {
   async createContract(
     payload: CreateSignedContractDto,
   ): Promise<Contract> {
-    const status =
-      payload.status ||
-      (payload.initiatorAgreed && payload.counterpartyAgreed
-        ? 'fully_signed'
-        : payload.initiatorAgreed
-          ? 'pending_counterparty'
-          : 'draft');
+    // À la création, on ne doit jamais marquer un contrat comme "fully_signed".
+    // Le créateur peut éventuellement marquer son accord; la contrepartie signera plus tard via un autre flux.
+    const status = payload.initiatorAgreed ? 'pending_counterparty' : 'draft';
 
     // Save in contracts table (before signing)
     const { data, error } = await this.supabase
@@ -186,8 +215,8 @@ export class ContractsService {
         clauses: payload.clauses,
         suggestions: payload.suggestions ?? [],
         raw_text: payload.rawText ?? null,
-        initiator_agreed: payload.initiatorAgreed,
-        counterparty_agreed: payload.counterpartyAgreed,
+        initiator_agreed: !!payload.initiatorAgreed,
+        counterparty_agreed: false, // toujours faux à la création
         status,
         generated_by: 'AI',
         blockchain_hash: null, // Empty until saved on blockchain
@@ -593,24 +622,48 @@ export class ContractsService {
     return data;
   }
 
-  async updateContractTxHash(id: string, txHash: string): Promise<void> {
+  async updateBlockchainHash(
+    id: string, 
+    txHash: string, 
+    paymentTxHash?: string, 
+    calculatedPrice?: number,
+    chainId?: number,
+    registrationCostEth?: number
+  ): Promise<void> {
+    const updateData: any = {
+      blockchain_hash: txHash,
+      status: 'fully_signed',
+      updated_at: new Date().toISOString()
+    };
+
+    // Add payment info if provided
+    if (paymentTxHash) {
+      updateData.payment_tx_hash = paymentTxHash;
+      updateData.auto_payment_date = new Date().toISOString();
+    }
+
+    if (calculatedPrice !== undefined) {
+      updateData.calculated_price = calculatedPrice;
+    }
+
+    if (chainId !== undefined) {
+      updateData.chain_id = chainId;
+    }
+
+    if (registrationCostEth !== undefined) {
+      updateData.registration_cost_eth = registrationCostEth;
+    }
+
     const { error } = await this.supabase
       .from('contracts')
-      .update({
-        blockchain_hash: txHash,
-        status: 'fully_signed',
-        updated_at: new Date().toISOString()
-      })
+      .update(updateData)
       .eq('id', id);
 
     if (error) {
       // Try signed_contracts if not found in contracts
       const { error: signedError } = await this.supabase
         .from('signed_contracts')
-        .update({
-          blockchain_hash: txHash,
-          updated_at: new Date().toISOString()
-        })
+        .update(updateData)
         .eq('id', id);
 
       if (signedError) {
@@ -618,4 +671,145 @@ export class ContractsService {
       }
     }
   }
+
+  async updateContractTxHash(id: string, txHash: string): Promise<void> {
+    return this.updateBlockchainHash(id, txHash);
+  }
+  async deleteContract(id: string): Promise<void> {
+    // Try to delete from contracts table
+    const { error: contractError } = await this.supabase
+      .from('contracts')
+      .delete()
+      .eq('id', id);
+
+    if (contractError) {
+      // If error, check if it exists in signed_contracts
+      const { error: signedError } = await this.supabase
+        .from('signed_contracts')
+        .delete()
+        .eq('id', id);
+
+      if (signedError) {
+        throw new Error(`Failed to delete contract: ${contractError.message} / ${signedError.message}`);
+      }
+    }
+  }
+
+  async setPaymentAmounts(
+    id: string,
+    contractAmount: number,
+    initiatorAmount: number,
+    counterpartyAmount: number,
+  ): Promise<Contract | SignedContract> {
+    // Try to update in contracts table first
+    const { data: contract, error: contractError } = await this.supabase
+      .from('contracts')
+      .update({
+        contract_amount: contractAmount,
+        initiator_payment_amount: initiatorAmount,
+        counterparty_payment_amount: counterpartyAmount,
+        payment_status: 'pending',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (!contractError && contract) {
+      return contract as Contract;
+    }
+
+    // If not in contracts, try signed_contracts
+    const { data: signedContract, error: signedError } = await this.supabase
+      .from('signed_contracts')
+      .update({
+        contract_amount: contractAmount,
+        initiator_payment_amount: initiatorAmount,
+        counterparty_payment_amount: counterpartyAmount,
+        payment_status: 'pending',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (signedError || !signedContract) {
+      throw new Error(signedError?.message || 'Failed to set payment amounts');
+    }
+
+    return signedContract as SignedContract;
+  }
+
+  async markPayment(
+    id: string,
+    userId: number,
+    amount?: number,
+    txHash?: string,
+  ): Promise<Contract | SignedContract> {
+    // Get current contract
+    const contract = await this.getContractById(id);
+
+    // Determine if user is initiator or counterparty
+    const isInitiator = contract.initiator_id === userId;
+    const isCounterparty = contract.counterparty_id === userId;
+
+    if (!isInitiator && !isCounterparty) {
+      throw new Error('User is not part of this contract');
+    }
+
+    // Prepare update object
+    const updates: any = {
+      updated_at: new Date().toISOString(),
+    };
+
+    if (isInitiator) {
+      updates.initiator_paid = true;
+      updates.initiator_payment_date = new Date().toISOString();
+    } else {
+      updates.counterparty_paid = true;
+      updates.counterparty_payment_date = new Date().toISOString();
+    }
+
+    // Check if both parties have paid
+    const initiatorPaid = isInitiator ? true : (contract as any).initiator_paid;
+    const counterpartyPaid = isCounterparty ? true : (contract as any).counterparty_paid;
+
+    if (initiatorPaid && counterpartyPaid) {
+      updates.payment_status = 'completed';
+      // If both paid and we have a txHash, save it as blockchain_hash
+      if (txHash) {
+        updates.blockchain_hash = txHash;
+        updates.status = 'fully_signed';
+      }
+    } else if (initiatorPaid || counterpartyPaid) {
+      updates.payment_status = 'partial';
+    }
+
+    // Try to update in contracts table first
+    const { data: updatedContract, error: contractError } = await this.supabase
+      .from('contracts')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (!contractError && updatedContract) {
+      return updatedContract as Contract;
+    }
+
+    // If not in contracts, try signed_contracts
+    const { data: signedContract, error: signedError } = await this.supabase
+      .from('signed_contracts')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (signedError || !signedContract) {
+      throw new Error(signedError?.message || 'Failed to mark payment');
+    }
+
+    return signedContract as SignedContract;
+  }
 }
+

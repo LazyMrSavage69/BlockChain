@@ -28,8 +28,12 @@ export declare namespace ContractRegistry {
     contractHash: string;
     initiator: AddressLike;
     counterparty: AddressLike;
+    initiatorAmount: BigNumberish;
+    counterpartyAmount: BigNumberish;
     initiatorSigned: boolean;
     counterpartySigned: boolean;
+    initiatorPaid: boolean;
+    counterpartyPaid: boolean;
     createdAt: BigNumberish;
     exists: boolean;
   };
@@ -38,16 +42,24 @@ export declare namespace ContractRegistry {
     contractHash: string,
     initiator: string,
     counterparty: string,
+    initiatorAmount: bigint,
+    counterpartyAmount: bigint,
     initiatorSigned: boolean,
     counterpartySigned: boolean,
+    initiatorPaid: boolean,
+    counterpartyPaid: boolean,
     createdAt: bigint,
     exists: boolean
   ] & {
     contractHash: string;
     initiator: string;
     counterparty: string;
+    initiatorAmount: bigint;
+    counterpartyAmount: bigint;
     initiatorSigned: boolean;
     counterpartySigned: boolean;
+    initiatorPaid: boolean;
+    counterpartyPaid: boolean;
     createdAt: bigint;
     exists: boolean;
   };
@@ -58,20 +70,28 @@ export interface ContractRegistryInterface extends Interface {
     nameOrSignature:
       | "contracts"
       | "getContract"
+      | "isFullyPaid"
+      | "makePayment"
       | "registerContract"
       | "signContract"
       | "userContracts"
   ): FunctionFragment;
 
   getEvent(
-    nameOrSignatureOrTopic: "ContractRegistered" | "ContractSigned"
+    nameOrSignatureOrTopic:
+      | "ContractCompleted"
+      | "ContractRegistered"
+      | "ContractSigned"
+      | "PaymentMade"
   ): EventFragment;
 
   encodeFunctionData(functionFragment: "contracts", values: [string]): string;
   encodeFunctionData(functionFragment: "getContract", values: [string]): string;
+  encodeFunctionData(functionFragment: "isFullyPaid", values: [string]): string;
+  encodeFunctionData(functionFragment: "makePayment", values: [string]): string;
   encodeFunctionData(
     functionFragment: "registerContract",
-    values: [string, string, AddressLike]
+    values: [string, string, AddressLike, BigNumberish, BigNumberish]
   ): string;
   encodeFunctionData(
     functionFragment: "signContract",
@@ -88,6 +108,14 @@ export interface ContractRegistryInterface extends Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(
+    functionFragment: "isFullyPaid",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "makePayment",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "registerContract",
     data: BytesLike
   ): Result;
@@ -99,6 +127,18 @@ export interface ContractRegistryInterface extends Interface {
     functionFragment: "userContracts",
     data: BytesLike
   ): Result;
+}
+
+export namespace ContractCompletedEvent {
+  export type InputTuple = [id: string];
+  export type OutputTuple = [id: string];
+  export interface OutputObject {
+    id: string;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
 }
 
 export namespace ContractRegisteredEvent {
@@ -129,6 +169,24 @@ export namespace ContractSignedEvent {
   export interface OutputObject {
     id: string;
     signer: string;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
+}
+
+export namespace PaymentMadeEvent {
+  export type InputTuple = [
+    id: string,
+    payer: AddressLike,
+    amount: BigNumberish
+  ];
+  export type OutputTuple = [id: string, payer: string, amount: bigint];
+  export interface OutputObject {
+    id: string;
+    payer: string;
+    amount: bigint;
   }
   export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
   export type Filter = TypedDeferredTopicFilter<Event>;
@@ -182,12 +240,28 @@ export interface ContractRegistry extends BaseContract {
   contracts: TypedContractMethod<
     [arg0: string],
     [
-      [string, string, string, boolean, boolean, bigint, boolean] & {
+      [
+        string,
+        string,
+        string,
+        bigint,
+        bigint,
+        boolean,
+        boolean,
+        boolean,
+        boolean,
+        bigint,
+        boolean
+      ] & {
         contractHash: string;
         initiator: string;
         counterparty: string;
+        initiatorAmount: bigint;
+        counterpartyAmount: bigint;
         initiatorSigned: boolean;
         counterpartySigned: boolean;
+        initiatorPaid: boolean;
+        counterpartyPaid: boolean;
         createdAt: bigint;
         exists: boolean;
       }
@@ -201,8 +275,18 @@ export interface ContractRegistry extends BaseContract {
     "view"
   >;
 
+  isFullyPaid: TypedContractMethod<[_id: string], [boolean], "view">;
+
+  makePayment: TypedContractMethod<[_id: string], [void], "payable">;
+
   registerContract: TypedContractMethod<
-    [_id: string, _hash: string, _counterparty: AddressLike],
+    [
+      _id: string,
+      _hash: string,
+      _counterparty: AddressLike,
+      _initiatorAmount: BigNumberish,
+      _counterpartyAmount: BigNumberish
+    ],
     [void],
     "nonpayable"
   >;
@@ -224,12 +308,28 @@ export interface ContractRegistry extends BaseContract {
   ): TypedContractMethod<
     [arg0: string],
     [
-      [string, string, string, boolean, boolean, bigint, boolean] & {
+      [
+        string,
+        string,
+        string,
+        bigint,
+        bigint,
+        boolean,
+        boolean,
+        boolean,
+        boolean,
+        bigint,
+        boolean
+      ] & {
         contractHash: string;
         initiator: string;
         counterparty: string;
+        initiatorAmount: bigint;
+        counterpartyAmount: bigint;
         initiatorSigned: boolean;
         counterpartySigned: boolean;
+        initiatorPaid: boolean;
+        counterpartyPaid: boolean;
         createdAt: bigint;
         exists: boolean;
       }
@@ -244,9 +344,21 @@ export interface ContractRegistry extends BaseContract {
     "view"
   >;
   getFunction(
+    nameOrSignature: "isFullyPaid"
+  ): TypedContractMethod<[_id: string], [boolean], "view">;
+  getFunction(
+    nameOrSignature: "makePayment"
+  ): TypedContractMethod<[_id: string], [void], "payable">;
+  getFunction(
     nameOrSignature: "registerContract"
   ): TypedContractMethod<
-    [_id: string, _hash: string, _counterparty: AddressLike],
+    [
+      _id: string,
+      _hash: string,
+      _counterparty: AddressLike,
+      _initiatorAmount: BigNumberish,
+      _counterpartyAmount: BigNumberish
+    ],
     [void],
     "nonpayable"
   >;
@@ -262,6 +374,13 @@ export interface ContractRegistry extends BaseContract {
   >;
 
   getEvent(
+    key: "ContractCompleted"
+  ): TypedContractEvent<
+    ContractCompletedEvent.InputTuple,
+    ContractCompletedEvent.OutputTuple,
+    ContractCompletedEvent.OutputObject
+  >;
+  getEvent(
     key: "ContractRegistered"
   ): TypedContractEvent<
     ContractRegisteredEvent.InputTuple,
@@ -275,8 +394,26 @@ export interface ContractRegistry extends BaseContract {
     ContractSignedEvent.OutputTuple,
     ContractSignedEvent.OutputObject
   >;
+  getEvent(
+    key: "PaymentMade"
+  ): TypedContractEvent<
+    PaymentMadeEvent.InputTuple,
+    PaymentMadeEvent.OutputTuple,
+    PaymentMadeEvent.OutputObject
+  >;
 
   filters: {
+    "ContractCompleted(string)": TypedContractEvent<
+      ContractCompletedEvent.InputTuple,
+      ContractCompletedEvent.OutputTuple,
+      ContractCompletedEvent.OutputObject
+    >;
+    ContractCompleted: TypedContractEvent<
+      ContractCompletedEvent.InputTuple,
+      ContractCompletedEvent.OutputTuple,
+      ContractCompletedEvent.OutputObject
+    >;
+
     "ContractRegistered(string,address,address)": TypedContractEvent<
       ContractRegisteredEvent.InputTuple,
       ContractRegisteredEvent.OutputTuple,
@@ -297,6 +434,17 @@ export interface ContractRegistry extends BaseContract {
       ContractSignedEvent.InputTuple,
       ContractSignedEvent.OutputTuple,
       ContractSignedEvent.OutputObject
+    >;
+
+    "PaymentMade(string,address,uint256)": TypedContractEvent<
+      PaymentMadeEvent.InputTuple,
+      PaymentMadeEvent.OutputTuple,
+      PaymentMadeEvent.OutputObject
+    >;
+    PaymentMade: TypedContractEvent<
+      PaymentMadeEvent.InputTuple,
+      PaymentMadeEvent.OutputTuple,
+      PaymentMadeEvent.OutputObject
     >;
   };
 }

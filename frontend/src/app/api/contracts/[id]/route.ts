@@ -56,3 +56,51 @@ export async function GET(
   }
 }
 
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id: contractId } = await params;
+  const cookieHeader = req.headers.get("cookie");
+
+  try {
+    const url = `${GATEWAY_URL}/contracts/${contractId}`;
+    console.log(`[API Route] Deleting contract ${contractId} from ${url}`);
+    
+    const response = await fetch(url, {
+      method: "DELETE",
+      headers: {
+        ...(cookieHeader ? { Cookie: cookieHeader } : {}),
+      },
+    });
+
+    console.log(`[API Route] Delete response status: ${response.status} for contract ${contractId}`);
+
+    if (!response.ok) {
+      let errorData: any = {};
+      try {
+        errorData = await response.json();
+      } catch (e) {
+        errorData = { error: `HTTP ${response.status}: ${response.statusText}` };
+      }
+      console.error("Contract delete error:", response.status, errorData);
+      return NextResponse.json(
+        {
+          error: errorData?.error || errorData?.message || `Failed to delete contract (${response.status})`,
+        },
+        { status: response.status }
+      );
+    }
+
+    const data = await response.json();
+    console.log("Contract deleted successfully:", contractId);
+    return NextResponse.json(data, { status: response.status });
+  } catch (error) {
+    console.error("Contract delete error:", error);
+    return NextResponse.json(
+      { error: `Erreur interne lors de la suppression du contrat: ${error instanceof Error ? error.message : 'Erreur inconnue'}` },
+      { status: 500 }
+    );
+  }
+}
+

@@ -20,6 +20,7 @@ interface ContractTemplate {
   downloads: number;
   creator: string;
   created_at: string;
+  isOwned?: boolean;
 }
 
 interface ContractModalProps {
@@ -209,6 +210,13 @@ const ContractModal = memo<ContractModalProps>(({ template, onClose, onModify })
               Utiliser gratuitement
             </button>
           )}
+          {template.isOwned && (
+            <div className="absolute top-0 right-0 p-4">
+              <span className="bg-green-500 text-white px-3 py-1 rounded-full text-sm font-bold shadow-lg transform rotate-12">
+                Acheté
+              </span>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -248,6 +256,11 @@ const TemplateCard = memo<{ template: ContractTemplate; onClick: () => void }>(
             <span className="text-orange-500 font-bold">${template.price.toFixed(2)}</span>
           ) : (
             <span className="text-green-500 font-bold">Gratuit</span>
+          )}
+          {template.isOwned && (
+            <span className="ml-2 bg-green-500/20 text-green-400 px-2 py-1 rounded text-xs border border-green-500/30">
+              Acheté
+            </span>
           )}
         </div>
         <p className="text-gray-500 text-sm">{template.category}</p>
@@ -432,7 +445,12 @@ const Marketplace: React.FC = () => {
   const fetchTemplates = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/contracts/templates', {
+      // Pass userId if logged in to check ownership
+      const url = user?.id
+        ? `/api/contracts/templates?userId=${user.id}`
+        : '/api/contracts/templates';
+
+      const response = await fetch(url, {
         credentials: 'include',
       });
 
@@ -449,7 +467,7 @@ const Marketplace: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     fetchTemplates();

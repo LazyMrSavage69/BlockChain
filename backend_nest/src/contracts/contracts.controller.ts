@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Put, Query, Req, NotFoundException, BadRequestException, HttpCode, HttpStatus } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Put, Delete, Query, Req, NotFoundException, BadRequestException, HttpCode, HttpStatus } from '@nestjs/common';
 import { ContractsService } from './contracts.service';
 import { CreateSignedContractDto } from './dto/create-signed-contract.dto';
 import { UpdateContractDto } from './dto/update-contract.dto';
@@ -15,8 +15,8 @@ export class ContractsController {
   ) { }
 
   @Get()
-  async getAll() {
-    const templates = await this.contractsService.findAll();
+  async getAll(@Query('userId') userId?: number) {
+    const templates = await this.contractsService.findAll(userId);
     // Map templates to include all required fields
     return templates.map((template: any) => ({
       id: template.id,
@@ -26,11 +26,12 @@ export class ContractsController {
       price: template.price || 0,
       rating: template.rating || 0,
       downloads: template.downloads || 0,
-      creator: template.creator || 'Unknown', // You may need to fetch creator name from users table
+      creator: template.creator || 'Unknown',
       created_at: template.created_at || new Date().toISOString(),
       visibility: template.visibility !== false,
       schema: template.schema,
       example: template.example,
+      isOwned: !!template.isOwned, // Pass ownership status
     }));
   }
 
@@ -191,6 +192,20 @@ export class ContractsController {
       });
 
       // Return the success URL directly to simulate a completed payment redirect
+
+      // IMPORTANT: In mock flow, we must create the contract immediately since there is no webhook
+      try {
+        const creatorId = (template as any).creator_id ? Number((template as any).creator_id) : body.userId;
+        await this.contractsService.createContractFromTemplate(
+          templateId,
+          body.userId,
+          isNaN(creatorId) ? body.userId : creatorId,
+        );
+        console.log('✅ Mock Contract created from template');
+      } catch (e) {
+        console.error('Failed to create mock contract:', e);
+      }
+
       return {
         success: true,
         data: {
@@ -255,12 +270,60 @@ export class ContractsController {
   @Post(':id/blockchain-hash')
   async updateBlockchainHash(
     @Param('id') id: string,
-    @Body() body: { txHash: string },
+    @Body() body: { txHash: string; paymentTxHash?: string; calculatedPrice?: number; chainId?: number; registrationCostEth?: number },
   ) {
     if (!body.txHash) {
       throw new BadRequestException('Transaction hash is required');
     }
-    await this.contractsService.updateContractTxHash(id, body.txHash);
+    await this.contractsService.updateBlockchainHash(id, body.txHash, body.paymentTxHash, body.calculatedPrice, body.chainId, body.registrationCostEth);
     return { success: true };
+  }
+  @Delete(':id')
+  async deleteContract(@Param('id') id: string) {
+    await this.contractsService.deleteContract(id);
+    return {
+      success: true,
+      message: 'Contract deleted successfully',
+    };
+  }
+
+  @Post(':id/payment')
+  async markPayment(
+    @Param('id') id: string,
+    @Body() body: { userId: number; amount?: number; txHash?: string },
+  ) {
+    const contract = await this.contractsService.markPayment(
+      id,
+      body.userId,
+      body.amount,
+      body.txHash,
+    );
+    return {
+      success: true,
+      message: 'Payment recorded successfully',
+      data: contract,
+    };
+  }
+
+  @Put(':id/set-amounts')
+  async setPaymentAmounts(
+    @Param('id') id: string,
+    @Body() body: { 
+      contractAmount: number;
+      initiatorAmount: number;
+      counterpartyAmount: number;
+    },
+  ) {
+    const contract = await this.contractsService.setPaymentAmounts(
+      id,
+      body.contractAmount,
+      body.initiatorAmount,
+      body.counterpartyAmount,
+    );
+    return {
+      success: true,
+      message: 'Payment amounts set successfully',
+      data: contract,
+    };
   }
 }

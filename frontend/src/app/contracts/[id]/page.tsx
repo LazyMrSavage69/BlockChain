@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Navbar from "@/app/navbar/page";
-import { Bold, Italic, Underline, List, ListOrdered, AlignLeft, Link as LinkIcon, Wallet } from "lucide-react";
-import { registerOnBlockchain, signOnBlockchain, getBlockchainContract } from "../../../lib/web3";
+import { Bold, Italic, Underline, List, ListOrdered, AlignLeft, Link as LinkIcon, Wallet, ExternalLink } from "lucide-react";
+import { registerOnBlockchain, signOnBlockchain, getBlockchainContract, makePaymentOnBlockchain, isContractFullyPaid, calculatePriceFromWordCount } from "../../../lib/web3";
 
 interface User {
   id: number;
@@ -32,6 +32,10 @@ interface Contract {
   status: string;
   generated_by?: string;
   blockchain_hash?: string | null;
+  payment_tx_hash?: string | null;
+  calculated_price?: number;
+  chain_id?: number | null;
+  registration_cost_eth?: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -301,6 +305,7 @@ export default function ContractViewPage() {
   const [editorContent, setEditorContent] = useState<string>("");
   const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [isInitialized, setIsInitialized] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastSavedContentRef = useRef<string>("");
@@ -635,40 +640,106 @@ export default function ContractViewPage() {
         }
       } catch (e) { console.log("Not on chain yet"); }
 
-      let txHash;
+      let txHash: string | undefined;
+      let chainId: number | undefined;
+      let estimatedCostEth: number | undefined;
 
       if (isInitiator && !contract.blockchain_hash) {
         // Initiator registers and signs
-        const counterpartyAddress = prompt("Veuillez entrer l'adresse Ethereum de la contrepartie:");
+        // Get counterparty's Ethereum address from their connected wallet
+        let counterpartyAddress: string | null = null;
+        
+        // Check if counterparty has Web3 wallet
+        if (typeof window !== 'undefined' && (window as any).ethereum) {
+          try {
+            // Request account access if needed
+            const accounts = await (window as any).ethereum.request({ 
+              method: 'eth_requestAccounts' 
+            });
+            
+            // For now, we'll use a placeholder since we need the counterparty's address
+            // In a real system, this should be stored in the user's profile
+            counterpartyAddress = prompt(
+              "Entrez l'adresse Ethereum de la contrepartie\n" +
+              "(ou laissez vide pour utiliser une adresse par défaut pour le test):"
+            );
+            
+            // Use a default test address if empty
+            if (!counterpartyAddress || counterpartyAddress.trim() === '') {
+              counterpartyAddress = accounts[0]; // Use current account as fallback for testing
+              console.log("Using current account as counterparty for testing:", counterpartyAddress);
+            }
+          } catch (error) {
+            console.error("Error accessing Web3 wallet:", error);
+            setError("Veuillez connecter votre portefeuille MetaMask pour continuer.");
+            setIsBlockchainLoading(false);
+            return;
+          }
+        } else {
+          // No Web3 wallet, ask for address manually
+          counterpartyAddress = prompt(
+            "Aucun portefeuille Web3 détecté.\n" +
+            "Entrez l'adresse Ethereum de la contrepartie\n" +
+            "(format: 0x...):"
+          );
+        }
+        
         if (!counterpartyAddress) {
+          setError("L'adresse de la contrepartie est requise pour enregistrer le contrat sur la blockchain.");
           setIsBlockchainLoading(false);
           return;
         }
 
         // Register
         console.log("Registering on blockchain...");
-        await registerOnBlockchain(contract.id, "hash-" + Date.now(), counterpartyAddress); // Using simplified hash for demo
+        await registerOnBlockchain(contract.id, "hash-" + Date.now(), counterpartyAddress);
 
         // Sign
         console.log("Signing on blockchain...");
-        txHash = await signOnBlockchain(contract.id);
+        const signResult = await signOnBlockchain(contract.id) as unknown as { txHash: string; chainId?: number; estimatedCostEth?: number };
+        txHash = signResult.txHash;
+        chainId = signResult.chainId;
+        estimatedCostEth = signResult.estimatedCostEth;
 
       } else {
         // Counterparty or subsequent sign
         console.log("Signing on blockchain...");
-        txHash = await signOnBlockchain(contract.id);
+        const signResult2 = await signOnBlockchain(contract.id) as unknown as { txHash: string; chainId?: number; estimatedCostEth?: number };
+        txHash = signResult2.txHash;
+        chainId = signResult2.chainId;
+        estimatedCostEth = signResult2.estimatedCostEth;
       }
 
-      // Update backend
-      if (txHash) {
+      // Calculate price based on word count
+      const contractText = contract.raw_text || contract.clauses.map(c => c.title + " " + c.body).join(" ");
+      const calculatedPrice = calculatePriceFromWordCount(contractText);
+
+      // Make automatic payment based on word count
+      console.log(`💰 Processing automatic payment: ${calculatedPrice} ETH`);
+      const paymentTxHash = await makePaymentOnBlockchain(contract.id, calculatedPrice.toString());
+
+      // Update backend with both transaction hashes
+      if (txHash && paymentTxHash) {
         await fetch(`/api/contracts/${contract.id}/blockchain-hash`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ txHash })
+          body: JSON.stringify({ 
+            txHash,
+            paymentTxHash,
+            calculatedPrice,
+            chainId,
+            registrationCostEth: estimatedCostEth
+          })
         });
 
         setBlockchainHash(txHash);
-        setSuccessMessage("Contrat signé sur la blockchain avec succès! Hash: " + txHash);
+        setSuccessMessage(
+          `✅ Contrat signé et enregistré sur la blockchain!\n` +
+          (typeof chainId !== 'undefined' ? `🔗 Chain ID: ${chainId}\n` : '') +
+          (typeof estimatedCostEth !== 'undefined' ? `⛽ Coût d'enregistrement estimé: ${estimatedCostEth.toFixed(6)} ETH\n` : '') +
+          `💰 Paiement de ${calculatedPrice} ETH effectué (basé sur ${contractText.trim().split(/\s+/).length} mots)\n` +
+          `TX: ${txHash.slice(0, 20)}...`
+        );
         // Refresh contract
         fetchContract();
       }
@@ -690,6 +761,46 @@ export default function ContractViewPage() {
       router.push("/");
     } catch (error) {
       console.error("Logout error:", error);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!contract || !user) return;
+
+    // Only owner/initiator can delete usually, or maybe both? 
+    // For now, let's allow the initiator or owner to delete.
+    const isOwner = user.id === contract.owner_id || user.id === contract.initiator_id;
+
+    if (!isOwner) {
+      setError("Seul le créateur du contrat peut le supprimer.");
+      return;
+    }
+
+    if (!confirm("Êtes-vous sûr de vouloir supprimer ce contrat ? Cette action est irréversible.")) {
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`/api/contracts/${contract.id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+
+      if (response.ok) {
+        setSuccessMessage("Contrat supprimé avec succès.");
+        setTimeout(() => {
+          router.push("/contractspage");
+        }, 1500);
+      } else {
+        const errorData = await response.json();
+        setError(errorData.error || "Erreur lors de la suppression du contrat");
+        setIsDeleting(false);
+      }
+    } catch (err) {
+      console.error("Delete error:", err);
+      setError("Erreur réseau lors de la suppression");
+      setIsDeleting(false);
     }
   };
 
@@ -749,6 +860,13 @@ export default function ContractViewPage() {
                 </h1>
                 <p className="text-purple-200">{contract.summary}</p>
               </div>
+              <button
+                onClick={handleDelete}
+                disabled={isDeleting}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold transition-colors mr-2 disabled:opacity-50"
+              >
+                {isDeleting ? "Suppression..." : "Supprimer"}
+              </button>
               <button
                 onClick={() => router.push("/contractspage")}
                 className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold transition-colors"
@@ -830,6 +948,8 @@ export default function ContractViewPage() {
             </div>
           )}
 
+
+
           {/* Editor */}
           <div className="bg-gradient-to-br from-purple-900/50 to-indigo-900/50 backdrop-blur-sm border border-purple-500/20 rounded-2xl shadow-2xl p-6">
             <div className="mb-4 flex items-center justify-between">
@@ -896,6 +1016,49 @@ export default function ContractViewPage() {
                 </button>
               )}
             </div>
+
+            {/* Blockchain status panel */}
+            {contract.blockchain_hash && (
+              <div className="mt-6 bg-indigo-950/40 border border-purple-500/30 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-white font-semibold">✓ Enregistré sur la blockchain</div>
+                    <div className="text-sm text-purple-200 mt-1">
+                      {typeof contract.chain_id !== 'undefined' && contract.chain_id !== null && (
+                        <div>Chain ID: <span className="font-mono">{contract.chain_id}</span></div>
+                      )}
+                      {typeof contract.registration_cost_eth !== 'undefined' && contract.registration_cost_eth !== null && (
+                        <div>Coût d'enregistrement estimé: <span className="font-mono">{contract.registration_cost_eth.toFixed ? contract.registration_cost_eth.toFixed(6) : contract.registration_cost_eth} ETH</span></div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => {
+                        // Try to build a reasonable explorer URL for common networks; fallback to alert
+                        let url: string | null = null;
+                        const tx = contract.blockchain_hash as string;
+                        const chainId = contract.chain_id as number | null;
+                        if (chainId === 1) url = `https://etherscan.io/tx/${tx}`;
+                        else if (chainId === 11155111) url = `https://sepolia.etherscan.io/tx/${tx}`;
+                        // Add more explorers here if needed (e.g., Ronin)
+                        if (url) {
+                          window.open(url, '_blank');
+                        } else {
+                          alert(`Transaction Hash: ${tx}`);
+                        }
+                      }}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold"
+                    >
+                      <ExternalLink size={18} /> Voir sur Blockchain
+                    </button>
+                  </div>
+                </div>
+                <div className="text-xs text-purple-300 font-mono break-all mt-2">
+                  TX: {contract.blockchain_hash}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Suggestions */}

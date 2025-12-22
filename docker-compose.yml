@@ -3,10 +3,10 @@ services:
     image: mysql:8.0
     container_name: mysql-db
     environment:
-      MYSQL_ROOT_PASSWORD: evomegaknight
-      MYSQL_DATABASE: miniprojet
-      MYSQL_USER: melkey
-      MYSQL_PASSWORD: megaknight
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     ports:
       - "3306:3306"
     volumes:
@@ -46,8 +46,8 @@ services:
       - "5000:5000"
     environment:
       PORT: 5000
-      SUPABASE_URL: "https://nyntdivguybkjyqwirvi.supabase.co"
-      SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im55bnRkaXZndXlia2p5cXdpcnZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA4Nzk0NDAsImV4cCI6MjA3NjQ1NTQ0MH0.1sbn5zoTG3Lb4bsLWG8X7Mzxc321793zVxqDPwZgFaU"
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
       NODE_ENV: production
       AUTH_SERVICE_URL: "http://auth-service:3060"
       GATEWAY_URL: "http://gateway:8000"
@@ -83,8 +83,8 @@ services:
     environment:
       NEXT_PUBLIC_API_URL: "http://localhost:8000"
       API_URL: "http://gateway:8000"
-      NEXT_PUBLIC_SUPABASE_URL: "https://nyntdivguybkjyqwirvi.supabase.co"
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im55bnRkaXZndXlia2p5cXdpcnZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA4Nzk0NDAsImV4cCI6MjA3NjQ1NTQ0MH0.1sbn5zoTG3Lb4bsLWG8X7Mzxc321793zVxqDPwZgFaU"
+      NEXT_PUBLIC_SUPABASE_URL: ${SUPABASE_URL}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
     depends_on:
       - gateway
     networks:

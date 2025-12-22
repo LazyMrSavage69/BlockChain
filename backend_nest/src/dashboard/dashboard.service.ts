@@ -43,7 +43,53 @@ export class DashboardService {
 
         const cryptoSpent = transactions?.reduce((sum, tx) => sum + (tx.price || 0), 0) || 0;
 
-        // 3. Interactions (Unique People)
+        // 3. Payment Stats
+        // Calculate total paid by user via contracts
+        let totalPaid = 0;
+        let paymentsPending = 0;
+        let paymentsCompleted = 0;
+
+        // Get payment data from contracts
+        const { data: contractsPayData } = await this.supabase
+            .from('contracts')
+            .select('initiator_id, counterparty_id, initiator_paid, counterparty_paid, initiator_payment_amount, counterparty_payment_amount, payment_status')
+            .or(`initiator_id.eq.${userId},counterparty_id.eq.${userId}`);
+
+        contractsPayData?.forEach(c => {
+            if (c.initiator_id === userId && c.initiator_paid) {
+                totalPaid += c.initiator_payment_amount || 0;
+            }
+            if (c.counterparty_id === userId && c.counterparty_paid) {
+                totalPaid += c.counterparty_payment_amount || 0;
+            }
+            if (c.payment_status === 'completed') {
+                paymentsCompleted++;
+            } else if (c.payment_status === 'partial' || c.payment_status === 'pending') {
+                paymentsPending++;
+            }
+        });
+
+        // Get payment data from signed_contracts
+        const { data: signedPayData } = await this.supabase
+            .from('signed_contracts')
+            .select('initiator_id, counterparty_id, initiator_paid, counterparty_paid, initiator_payment_amount, counterparty_payment_amount, payment_status')
+            .or(`initiator_id.eq.${userId},counterparty_id.eq.${userId}`);
+
+        signedPayData?.forEach(c => {
+            if (c.initiator_id === userId && c.initiator_paid) {
+                totalPaid += c.initiator_payment_amount || 0;
+            }
+            if (c.counterparty_id === userId && c.counterparty_paid) {
+                totalPaid += c.counterparty_payment_amount || 0;
+            }
+            if (c.payment_status === 'completed') {
+                paymentsCompleted++;
+            } else if (c.payment_status === 'partial' || c.payment_status === 'pending') {
+                paymentsPending++;
+            }
+        });
+
+        // 4. Interactions (Unique People)
         // We need to fetch all contracts and find distinct counterparties
 
         const interactions = new Set<number>();
@@ -73,6 +119,9 @@ export class DashboardService {
         return {
             totalContracts,
             cryptoSpent,
+            totalPaid,
+            paymentsCompleted,
+            paymentsPending,
             interactionCount: interactions.size,
             recentActivity: [] // Could be populated if needed
         };
