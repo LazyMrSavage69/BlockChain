@@ -60,10 +60,10 @@ export default function AvatarCreator() {
       if (response.ok) {
         const userData = await response.json();
         setUser(userData);
-        
+
         // Check if user has existing avatar
         await loadExistingAvatar(userData.id);
-        
+
         // Set default seed if no existing avatar
         if (!hasExistingAvatar) {
           setSeed(userData.name || userData.email);
@@ -129,7 +129,7 @@ export default function AvatarCreator() {
     link.download = `avatar-${seed}.svg`;
     link.click();
   };
-  
+
   const saveAvatarToDB = async () => {
     if (!user) {
       alert('Please login to save your avatar');
@@ -146,8 +146,8 @@ export default function AvatarCreator() {
         credentials: 'include',
         body: JSON.stringify({
           userId: user.id,
-          email: user.email,        
-          name: user.name, 
+          email: user.email,
+          name: user.name,
           avatarUrl,
           style: selectedStyle,
           seed,
@@ -191,7 +191,7 @@ export default function AvatarCreator() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-950 via-purple-900 to-indigo-950">
       <Navbar user={user} onLogout={handleLogout} />
-      
+
       <div className="pt-20 pb-12 px-4">
         <div className="max-w-7xl mx-auto">
           <div className="bg-gradient-to-br from-purple-900/50 to-indigo-900/50 backdrop-blur-sm border border-purple-500/20 rounded-2xl shadow-2xl p-6 md:p-8 mb-8">
@@ -213,7 +213,7 @@ export default function AvatarCreator() {
                   )}
                 </p>
               </div>
-              
+
               <button
                 onClick={() => router.push(hasExistingAvatar ? '/contracts' : '/dashboard')}
                 className="px-6 py-3 bg-white/10 border border-purple-400/30 text-white rounded-full hover:bg-white/20 transition-all"
@@ -291,7 +291,7 @@ export default function AvatarCreator() {
                 onClick={saveAvatarToDB}
                 className="w-full px-4 py-3 bg-gradient-to-br from-purple-500 to-pink-500 text-white rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all shadow-lg font-semibold"
               >
-                💾 {hasExistingAvatar ? 'Update Avatar & Continue' : 'Save Avatar & Continue'}
+                {hasExistingAvatar ? 'Update Avatar & Continue' : 'Save Avatar & Continue'}
               </button>
             </div>
 
@@ -308,16 +308,14 @@ export default function AvatarCreator() {
                   <button
                     key={style.id}
                     onClick={() => setSelectedStyle(style.id)}
-                    className={`w-full flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${
-                      selectedStyle === style.id
-                        ? 'border-purple-400 bg-purple-500/20 shadow-lg shadow-purple-500/20'
-                        : 'border-purple-500/20 hover:border-purple-400/50 hover:bg-purple-500/10'
-                    }`}
+                    className={`w-full flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${selectedStyle === style.id
+                      ? 'border-purple-400 bg-purple-500/20 shadow-lg shadow-purple-500/20'
+                      : 'border-purple-500/20 hover:border-purple-400/50 hover:bg-purple-500/10'
+                      }`}
                   >
                     <div className="relative">
-                      <div className={`absolute inset-0 rounded-full blur-md ${
-                        selectedStyle === style.id ? 'bg-purple-500/50' : 'bg-purple-500/20'
-                      }`}></div>
+                      <div className={`absolute inset-0 rounded-full blur-md ${selectedStyle === style.id ? 'bg-purple-500/50' : 'bg-purple-500/20'
+                        }`}></div>
                       <img
                         src={`https://api.dicebear.com/7.x/${style.id}/svg?seed=${seed || 'preview'}`}
                         alt={style.name}
@@ -343,54 +341,7 @@ export default function AvatarCreator() {
             </div>
           </div>
 
-          <div className="mt-8 bg-gradient-to-br from-blue-900/40 to-indigo-900/40 backdrop-blur-sm border border-blue-500/20 rounded-2xl p-6 shadow-xl">
-            <div className="flex items-start gap-4">
-              <div className="text-4xl">💡</div>
-              <div className="flex-1">
-                <h3 className="font-bold text-white text-xl mb-3">
-                  How to Create Your Avatar:
-                </h3>
-                <div className="grid md:grid-cols-2 gap-3 text-purple-200">
-                  <div className="flex items-start gap-2">
-                    <svg className="w-5 h-5 text-purple-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    <span>Choose an avatar style from the style panel</span>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <svg className="w-5 h-5 text-purple-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    <span>Modify the seed text to change appearance</span>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <svg className="w-5 h-5 text-purple-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    <span>Click the dice 🎲 for random generation</span>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <svg className="w-5 h-5 text-purple-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    <span>Download or copy URL to use anywhere</span>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <svg className="w-5 h-5 text-purple-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    <span>Save to database to access contracts</span>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <svg className="w-5 h-5 text-purple-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    <span>Update anytime to change your avatar</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+
         </div>
       </div>
     </div>

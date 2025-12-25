@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS contracts (
   template_id UUID,
   owner_id INTEGER NOT NULL, -- Référence MySQL users.id (INTEGER)
   initiator_id INTEGER NOT NULL, -- Référence MySQL users.id (INTEGER)
-  counterparty_id INTEGER NOT NULL, -- Référence MySQL users.id (INTEGER)
+  counterparty_id INTEGER, -- Référence MySQL users.id (INTEGER) - NULL jusqu'à ce qu'une contrepartie soit assignée
   title TEXT NOT NULL,
   summary TEXT NOT NULL,
   content JSONB NOT NULL DEFAULT '{}'::jsonb,
@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS contracts (
   suggestions JSONB NOT NULL DEFAULT '[]'::jsonb,
   raw_text TEXT,
   metadata JSONB DEFAULT '{}'::jsonb,
-  status TEXT NOT NULL DEFAULT 'draft',
+  status TEXT NOT NULL DEFAULT 'draft', -- 'draft', 'purchased', 'pending_counterparty', 'pending_acceptance', 'fully_signed', 'archived'
   initiator_agreed BOOLEAN NOT NULL DEFAULT false,
   counterparty_agreed BOOLEAN NOT NULL DEFAULT false,
   generated_by TEXT DEFAULT 'AI',
@@ -58,11 +58,13 @@ ALTER TABLE contracts DISABLE ROW LEVEL SECURITY;
 COMMENT ON TABLE contracts IS 'Contrats générés par l''IA, en attente de signature';
 COMMENT ON COLUMN contracts.owner_id IS 'ID du propriétaire/créateur du contrat';
 COMMENT ON COLUMN contracts.initiator_id IS 'ID de l''initiateur du contrat';
-COMMENT ON COLUMN contracts.counterparty_id IS 'ID de la contrepartie';
+COMMENT ON COLUMN contracts.counterparty_id IS 'ID de la contrepartie (NULL jusqu''à assignation)';
 COMMENT ON COLUMN contracts.content IS 'Contenu JSON du contrat (pour compatibilité)';
 COMMENT ON COLUMN contracts.clauses IS 'Tableau JSON des clauses du contrat';
 COMMENT ON COLUMN contracts.blockchain_hash IS 'Hash blockchain (vide jusqu''à sauvegarde sur blockchain)';
-COMMENT ON COLUMN contracts.status IS 'Statut: draft, pending_counterparty, fully_signed';
+COMMENT ON COLUMN contracts.status IS 'Statut: draft (création), purchased (achat template), pending_counterparty (contrepartie assignée), pending_acceptance (en attente acceptation), fully_signed (signé par les deux), archived (archivé)';
+COMMENT ON COLUMN contracts.initiator_agreed IS 'Accord de l''initiateur (false jusqu''à acceptation explicite)';
+COMMENT ON COLUMN contracts.counterparty_agreed IS 'Accord de la contrepartie (false jusqu''à acceptation explicite)';
 COMMENT ON COLUMN signed_contracts.blockchain_hash IS 'Hash blockchain du contrat signé';
 COMMENT ON COLUMN signed_contracts.contract_id IS 'Référence vers le contrat original dans contracts';
 

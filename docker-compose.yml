@@ -102,6 +102,29 @@ services:
     networks:
       - miniprojet-net
 
+  stripe-listener:
+    image: stripe/stripe-cli:latest
+    container_name: stripe-listener
+    command: listen --forward-to http://backend_nest:5000/api/subscriptions/webhook
+    environment:
+      STRIPE_API_KEY: ${STRIPE_SECRET_KEY}
+    depends_on:
+      - backend_nest
+    networks:
+      - miniprojet-net
+
+  hardhat-node:
+    image: node:20-alpine
+    container_name: hardhat-node
+    working_dir: /app
+    ports:
+      - "8545:8545"
+    volumes:
+      - ./blockchain:/app
+    command: sh -c "npm install && npx hardhat node --hostname 0.0.0.0"
+    networks:
+      - miniprojet-net
+
 volumes:
   mysql_data:
 

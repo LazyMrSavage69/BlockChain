@@ -118,66 +118,133 @@ export class ContractsService {
     buyerId: number,
     sellerId: number, // creator_id from template - Unused for contract parties now
   ): Promise<Contract> {
-    console.log(`[ContractsService] Creating contract from template ${templateId} for buyer ${buyerId}`);
+    console.log(`[ContractsService] ========== CREATE CONTRACT FROM TEMPLATE ==========`);
+    console.log(`[ContractsService] Input parameters:`, {
+      templateId,
+      buyerId,
+      buyerIdType: typeof buyerId,
+      sellerId,
+      sellerIdType: typeof sellerId,
+    });
 
-    // Get template
-    const template = await this.getTemplateById(templateId);
-    if (!template) {
-      throw new Error('Template not found');
-    }
+    try {
+      // Get template
+      console.log(`[ContractsService] Step 1: Fetching template ${templateId}...`);
+      const template = await this.getTemplateById(templateId);
+      if (!template) {
+        console.error(`[ContractsService] ❌ Template not found: ${templateId}`);
+        throw new Error('Template not found');
+      }
+      console.log(`[ContractsService] ✅ Template found:`, {
+        id: template.id,
+        title: template.title,
+        hasExample: !!template.example,
+        hasSchema: !!template.schema,
+      });
 
-    console.log('[ContractsService] DEBUG Template Structure:', JSON.stringify(template, null, 2));
+      console.log('[ContractsService] DEBUG Template Structure:', JSON.stringify(template, null, 2));
 
-    // Extract contract data from template
-    // Templates might have 'example' or 'schema' fields with clause data
-    const example = template.example || {};
-    const schema = template.schema || {};
+      // Extract contract data from template
+      // Templates might have 'example' or 'schema' fields with clause data
+      console.log(`[ContractsService] Step 2: Extracting clauses from template...`);
+      const example = template.example || {};
+      const schema = template.schema || {};
 
-    let clauses = [];
-    if (example.clauses && Array.isArray(example.clauses) && example.clauses.length > 0) {
-      clauses = example.clauses;
-    } else if (schema.clauses && Array.isArray(schema.clauses) && schema.clauses.length > 0) {
-      clauses = schema.clauses;
-    } else if (example.raw_text) {
-      // Fallback: Try to parse raw_text if clauses are missing
-      // Simple parse by splitting on newlines or double newlines
-      const text = example.raw_text;
-      const paragraphs = text.split(/\n\s*\n/); // Split by empty lines
-      clauses = paragraphs.map((p, i) => ({
-        title: `Clause ${i + 1}`,
-        body: p.trim()
-      })).filter(c => c.body.length > 0);
-    }
+      let clauses = [];
+      if (example.clauses && Array.isArray(example.clauses) && example.clauses.length > 0) {
+        clauses = example.clauses;
+        console.log(`[ContractsService] ✅ Found ${clauses.length} clauses in example.clauses`);
+      } else if (schema.clauses && Array.isArray(schema.clauses) && schema.clauses.length > 0) {
+        clauses = schema.clauses;
+        console.log(`[ContractsService] ✅ Found ${clauses.length} clauses in schema.clauses`);
+      } else if (example.raw_text) {
+        // Fallback: Try to parse raw_text if clauses are missing
+        // Simple parse by splitting on newlines or double newlines
+        console.log(`[ContractsService] ⚠️ No clauses found, parsing raw_text...`);
+        const text = example.raw_text;
+        const paragraphs = text.split(/\n\s*\n/); // Split by empty lines
+        clauses = paragraphs.map((p, i) => ({
+          title: `Clause ${i + 1}`,
+          body: p.trim()
+        })).filter(c => c.body.length > 0);
+        console.log(`[ContractsService] ✅ Parsed ${clauses.length} clauses from raw_text`);
+      } else {
+        console.warn(`[ContractsService] ⚠️ No clauses found in template!`);
+      }
 
-    console.log(`[ContractsService] Extracted ${clauses.length} clauses from template`);
-
-    // Create contract with buyer as initiator. Counterparty is NULL initially.
-    const { data: contract, error } = await this.supabase
-      .from('contracts')
-      .insert({
+      console.log(`[ContractsService] Step 3: Preparing contract data...`);
+      const contractData = {
         initiator_id: buyerId,
-        counterparty_id: null,
+        counterparty_id: null, // No counterparty yet
         owner_id: buyerId,
         title: template.title || 'Contract from Template',
         summary: template.description || '',
         clauses: clauses,
         suggestions: example.suggestions || [],
         raw_text: example.raw_text || null,
-        initiator_agreed: false,
-        counterparty_agreed: false,
-        status: 'draft',
+        initiator_agreed: false, // Must explicitly accept
+        counterparty_agreed: false, // Will be false until counterparty accepts
+        status: 'purchased', // New status for purchased templates
         template_id: templateId,
         metadata: { source: 'template', original_price: (template as any).price },
-      })
-      .select()
-      .single();
+      };
 
-    if (error) {
-      console.error('Error creating contract from template:', error);
-      throw new Error(error.message);
+      console.log(`[ContractsService] Contract data prepared:`, {
+        initiator_id: contractData.initiator_id,
+        owner_id: contractData.owner_id,
+        title: contractData.title,
+        clausesCount: contractData.clauses.length,
+        status: contractData.status,
+        template_id: contractData.template_id,
+      });
+
+      // Create contract with buyer as initiator. Counterparty is NULL initially.
+      // Status is 'purchased' to indicate template was purchased and awaiting party assignment
+      console.log(`[ContractsService] Step 4: Inserting contract into database...`);
+      const { data: contract, error } = await this.supabase
+        .from('contracts')
+        .insert(contractData)
+        .select()
+        .single();
+
+      if (error) {
+        console.error(`[ContractsService] ❌❌❌ DATABASE ERROR ❌❌❌`);
+        console.error(`[ContractsService] Error details:`, {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+        });
+        throw new Error(error.message);
+      }
+
+      if (!contract) {
+        console.error(`[ContractsService] ❌ No contract returned from database`);
+        throw new Error('Failed to create contract - no data returned');
+      }
+
+      console.log(`[ContractsService] ✅✅✅ CONTRACT CREATED IN DATABASE ✅✅✅`);
+      console.log(`[ContractsService] Contract details:`, {
+        id: contract.id,
+        title: contract.title,
+        status: contract.status,
+        owner_id: contract.owner_id,
+        initiator_id: contract.initiator_id,
+        template_id: contract.template_id,
+      });
+      console.log(`[ContractsService] ========== END CREATE CONTRACT FROM TEMPLATE ==========`);
+
+      return contract as Contract;
+    } catch (error) {
+      console.error(`[ContractsService] ❌❌❌ EXCEPTION IN createContractFromTemplate ❌❌❌`);
+      console.error(`[ContractsService] Error:`, {
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        templateId,
+        buyerId,
+      });
+      throw error;
     }
-
-    return contract as Contract;
   }
 
   async updateMarketplaceTransaction(
@@ -467,6 +534,8 @@ export class ContractsService {
       title?: string;
       summary?: string;
       clauses?: Array<{ title: string; body: string }>;
+      counterpartyId?: number;
+      status?: string;
     },
   ): Promise<Contract | SignedContract> {
     // Try to update in contracts table first
@@ -475,6 +544,8 @@ export class ContractsService {
       .update({
         ...(updates.title && { title: updates.title }),
         ...(updates.summary && { summary: updates.summary }),
+        ...(typeof updates.counterpartyId === 'number' && { counterparty_id: updates.counterpartyId }),
+        ...(updates.status && { status: updates.status }),
         ...(updates.clauses && { clauses: updates.clauses, content: { clauses: updates.clauses } }),
         updated_at: new Date().toISOString(),
       })
@@ -492,6 +563,8 @@ export class ContractsService {
       .update({
         ...(updates.title && { title: updates.title }),
         ...(updates.summary && { summary: updates.summary }),
+        ...(typeof updates.counterpartyId === 'number' && { counterparty_id: updates.counterpartyId }),
+        ...(updates.status && { status: updates.status }),
         ...(updates.clauses && { clauses: updates.clauses }),
         updated_at: new Date().toISOString(),
       })
@@ -535,9 +608,14 @@ export class ContractsService {
       throw new Error('User is not authorized to accept this contract');
     }
 
+    // Check if counterparty is assigned (can't accept if no counterparty)
+    if (!contract.counterparty_id) {
+      throw new Error('Cannot accept contract: counterparty must be assigned first');
+    }
+
     // Check if already signed and moved to signed_contracts
-    if (contract.status === 'archived') {
-      throw new Error('Contract has already been signed and archived');
+    if (contract.status === 'archived' || contract.status === 'fully_signed') {
+      throw new Error('Contract has already been signed');
     }
 
     // Update agreement status
@@ -557,6 +635,7 @@ export class ContractsService {
     const counterpartyAgreed = isInitiator ? contract.counterparty_agreed : true;
 
     if (initiatorAgreed && counterpartyAgreed) {
+      // Both parties have accepted - mark as fully signed
       updates.status = 'fully_signed';
 
       // Update the contract
@@ -581,7 +660,8 @@ export class ContractsService {
         return updatedContract as Contract;
       }
     } else {
-      updates.status = 'pending_counterparty';
+      // Only one party has accepted - update status to pending_acceptance
+      updates.status = 'pending_acceptance';
 
       const { data: updatedContract, error: updateError } = await this.supabase
         .from('contracts')
@@ -623,9 +703,9 @@ export class ContractsService {
   }
 
   async updateBlockchainHash(
-    id: string, 
-    txHash: string, 
-    paymentTxHash?: string, 
+    id: string,
+    txHash: string,
+    paymentTxHash?: string,
     calculatedPrice?: number,
     chainId?: number,
     registrationCostEth?: number

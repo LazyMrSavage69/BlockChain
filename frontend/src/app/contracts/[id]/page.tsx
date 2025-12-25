@@ -21,7 +21,7 @@ interface Contract {
   id: string;
   owner_id?: number;
   initiator_id: number;
-  counterparty_id: number;
+  counterparty_id: number | null; // Can be null until assigned
   title: string;
   summary: string;
   clauses: ContractClause[];
@@ -29,7 +29,7 @@ interface Contract {
   raw_text?: string;
   initiator_agreed: boolean;
   counterparty_agreed: boolean;
-  status: string;
+  status: string; // 'draft', 'purchased', 'pending_counterparty', 'pending_acceptance', 'fully_signed', 'archived'
   generated_by?: string;
   blockchain_hash?: string | null;
   payment_tx_hash?: string | null;
@@ -300,11 +300,12 @@ export default function ContractViewPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isAccepting, setIsAccepting] = useState(false);
+  const [isRevoking, setIsRevoking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [editorContent, setEditorContent] = useState<string>("");
-  const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [isInitialized, setIsInitialized] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -312,6 +313,8 @@ export default function ContractViewPage() {
 
   const [isBlockchainLoading, setIsBlockchainLoading] = useState(false);
   const [blockchainHash, setBlockchainHash] = useState<string | null>(null);
+  const [showBlockchainPopup, setShowBlockchainPopup] = useState(false);
+  const [hasShownPopup, setHasShownPopup] = useState(false);
 
   // Convert clauses to HTML
   const clausesToHTML = (clauses: ContractClause[]): string => {
@@ -334,32 +337,40 @@ export default function ContractViewPage() {
     let currentTitle = "";
     let currentBody = "";
 
-    Array.from(doc.body.children).forEach((element) => {
-      if (element.tagName === "H2") {
-        if (currentTitle && currentBody) {
-          clauses.push({
-            title: currentTitle,
-            body: currentBody.trim(),
-          });
-        }
-        currentTitle = element.textContent || "";
-        currentBody = "";
-      } else if (element.tagName === "H3") {
-        // Treat H3 as part of body or as a subtitle
-        if (currentTitle) {
+    Array.from(doc.body.childNodes).forEach((node) => {
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        const element = node as Element;
+        if (element.tagName === "H2") {
+          if (currentTitle || currentBody.trim()) {
+            clauses.push({
+              title: currentTitle || "Général",
+              body: currentBody.trim(),
+            });
+          }
+          currentTitle = element.textContent || "";
+          currentBody = "";
+        } else if (element.tagName === "H3") {
+          if (!currentTitle) currentTitle = "Général";
           currentBody += (currentBody ? "\n" : "") + (element.textContent || "");
+        } else if (element.tagName === "P" || element.tagName === "DIV") {
+          const text = element.textContent || "";
+          if (text.trim()) {
+            if (!currentTitle) currentTitle = "Général";
+            currentBody += (currentBody ? "\n" : "") + text;
+          }
         }
-      } else if (element.tagName === "P" || element.tagName === "DIV") {
-        const text = element.textContent || "";
+      } else if (node.nodeType === Node.TEXT_NODE) {
+        const text = node.textContent || "";
         if (text.trim()) {
+          if (!currentTitle) currentTitle = "Général";
           currentBody += (currentBody ? "\n" : "") + text;
         }
       }
     });
 
-    if (currentTitle && currentBody) {
+    if (currentTitle || currentBody) {
       clauses.push({
-        title: currentTitle,
+        title: currentTitle || "Général",
         body: currentBody.trim(),
       });
     }
@@ -367,88 +378,21 @@ export default function ContractViewPage() {
     return clauses.length > 0 ? clauses : contract?.clauses || [];
   };
 
-  // Auto-save function with debounce
-  const autoSaveContract = useCallback(async (content: string) => {
-    if (!contract || !user) return;
-
-    // Check if user can edit (not signed and is one of the parties)
-    const isInitiator = user.id === contract.initiator_id;
-    const isCounterparty = user.id === contract.counterparty_id;
-    const isSigned = contract.status === "fully_signed";
-    const canEditContract = !isSigned && (isInitiator || isCounterparty);
-
-    if (!canEditContract) return;
-
-    // Clear existing timeout
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-    }
-
-    // Set new timeout for auto-save (2 seconds after last change)
-    saveTimeoutRef.current = setTimeout(async () => {
-      // Only save if content has changed
-      if (content === lastSavedContentRef.current) {
-        return;
-      }
-
-      setIsSaving(true);
-      setAutoSaveStatus("saving");
-      setError(null);
-
-      try {
-        const updatedClauses = htmlToClauses(content);
-
-        const response = await fetch(
-          `/api/contracts/${contractId}/update`,
-          {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            credentials: "include",
-            body: JSON.stringify({
-              clauses: updatedClauses,
-              title: contract.title,
-              summary: contract.summary,
-            }),
-          }
-        );
-
-        if (response.ok) {
-          const data = await response.json();
-          setContract(data.data);
-          lastSavedContentRef.current = content;
-          setAutoSaveStatus("saved");
-          setTimeout(() => {
-            setAutoSaveStatus("idle");
-          }, 2000);
-        } else {
-          const errorData = await response.json();
-          setError(errorData.error || "Erreur lors de la sauvegarde automatique");
-          setAutoSaveStatus("idle");
-        }
-      } catch (err) {
-        console.error("Error auto-saving contract:", err);
-        setError("Erreur lors de la sauvegarde automatique");
-        setAutoSaveStatus("idle");
-      } finally {
-        setIsSaving(false);
-      }
-    }, 2000); // 2 second debounce
-  }, [contract, user, contractId]);
+  // Helper to strip HTML tags
+  const stripHtml = (html: string): string => {
+    const tmp = document.createElement("DIV");
+    tmp.innerHTML = html;
+    return tmp.textContent || tmp.innerText || "";
+  };
 
   // Handle editor content change
   const handleEditorChange = (content: string) => {
     setEditorContent(content);
-    if (contract && user && isInitialized) {
-      const isInitiator = user.id === contract.initiator_id;
-      const isCounterparty = user.id === contract.counterparty_id;
-      const isSigned = contract.status === "fully_signed";
-      const canEditContract = !isSigned && (isInitiator || isCounterparty);
-
-      if (canEditContract) {
-        autoSaveContract(content);
-      }
+    // Mark as having unsaved changes if content differs from last saved
+    if (content !== lastSavedContentRef.current) {
+      setHasUnsavedChanges(true);
+    } else {
+      setHasUnsavedChanges(false);
     }
   };
 
@@ -468,9 +412,21 @@ export default function ContractViewPage() {
       const html = clausesToHTML(contract.clauses || []);
       setEditorContent(html);
       lastSavedContentRef.current = html;
+      setHasUnsavedChanges(false);
       setIsInitialized(true);
     }
-  }, [contract]);
+
+    // Check if we should show the blockchain popup
+    if (contract && contract.status === 'fully_signed' && !contract.blockchain_hash && !hasShownPopup) {
+      // Only show if user is initiator (creator)
+      const isInitiator = user?.id === contract.initiator_id;
+
+      if (isInitiator) {
+        setShowBlockchainPopup(true);
+        setHasShownPopup(true);
+      }
+    }
+  }, [contract, hasShownPopup, user]);
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -540,6 +496,7 @@ export default function ContractViewPage() {
 
     try {
       const updatedClauses = htmlToClauses(editorContent);
+      const rawText = stripHtml(editorContent);
 
       const response = await fetch(
         `/api/contracts/${contractId}/update`,
@@ -551,6 +508,7 @@ export default function ContractViewPage() {
           credentials: "include",
           body: JSON.stringify({
             clauses: updatedClauses,
+            raw_text: rawText,
             title: contract.title,
             summary: contract.summary,
           }),
@@ -561,6 +519,7 @@ export default function ContractViewPage() {
         const data = await response.json();
         setContract(data.data);
         lastSavedContentRef.current = editorContent;
+        setHasUnsavedChanges(false);
         setSuccessMessage("Contrat sauvegardé avec succès!");
         setTimeout(() => setSuccessMessage(null), 3000);
       } else {
@@ -623,6 +582,54 @@ export default function ContractViewPage() {
     }
   };
 
+  const revokeAgreement = async () => {
+    if (!contract || !user) return;
+
+    setIsRevoking(true);
+    setError(null);
+
+    try {
+      const isInitiator = user.id === contract.initiator_id;
+      const isCounterparty = user.id === contract.counterparty_id;
+
+      if (!isInitiator && !isCounterparty) {
+        setError("Vous n'êtes pas autorisé à révoquer ce contrat");
+        return;
+      }
+
+      const response = await fetch(
+        `/api/contracts/${contractId}/revoke`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({
+            userId: user.id,
+          }),
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        setContract(data.data);
+        setSuccessMessage(
+          "Accord révoqué avec succès. Vous pouvez modifier le contrat à nouveau."
+        );
+        setTimeout(() => setSuccessMessage(null), 5000);
+      } else {
+        const errorData = await response.json();
+        setError(errorData.error || "Erreur lors de la révocation");
+      }
+    } catch (err) {
+      console.error("Error revoking agreement:", err);
+      setError("Erreur lors de la révocation de l'accord");
+    } finally {
+      setIsRevoking(false);
+    }
+  };
+
   const handleBlockchainSign = async () => {
     if (!contract || !user) return;
     setIsBlockchainLoading(true);
@@ -648,22 +655,22 @@ export default function ContractViewPage() {
         // Initiator registers and signs
         // Get counterparty's Ethereum address from their connected wallet
         let counterpartyAddress: string | null = null;
-        
+
         // Check if counterparty has Web3 wallet
         if (typeof window !== 'undefined' && (window as any).ethereum) {
           try {
             // Request account access if needed
-            const accounts = await (window as any).ethereum.request({ 
-              method: 'eth_requestAccounts' 
+            const accounts = await (window as any).ethereum.request({
+              method: 'eth_requestAccounts'
             });
-            
+
             // For now, we'll use a placeholder since we need the counterparty's address
             // In a real system, this should be stored in the user's profile
             counterpartyAddress = prompt(
               "Entrez l'adresse Ethereum de la contrepartie\n" +
               "(ou laissez vide pour utiliser une adresse par défaut pour le test):"
             );
-            
+
             // Use a default test address if empty
             if (!counterpartyAddress || counterpartyAddress.trim() === '') {
               counterpartyAddress = accounts[0]; // Use current account as fallback for testing
@@ -683,7 +690,7 @@ export default function ContractViewPage() {
             "(format: 0x...):"
           );
         }
-        
+
         if (!counterpartyAddress) {
           setError("L'adresse de la contrepartie est requise pour enregistrer le contrat sur la blockchain.");
           setIsBlockchainLoading(false);
@@ -718,18 +725,35 @@ export default function ContractViewPage() {
       console.log(`💰 Processing automatic payment: ${calculatedPrice} ETH`);
       const paymentTxHash = await makePaymentOnBlockchain(contract.id, calculatedPrice.toString());
 
+      console.log(`[Frontend] Blockchain sign result: txHash=${txHash}, chainId=${chainId}`);
+
       // Update backend with both transaction hashes
       if (txHash && paymentTxHash) {
+        // Validation check
+        if (!chainId) {
+          console.warn("[Frontend] ChainID missing from sign result, attempting to fetch from window.ethereum");
+          try {
+            const chainIdHex = await (window as any).ethereum.request({ method: 'eth_chainId' });
+            chainId = parseInt(chainIdHex, 16);
+            console.log("[Frontend] Refetched ChainID:", chainId);
+          } catch (e) {
+            console.error("[Frontend] Failed to refetch ChainID", e);
+          }
+        }
+
+        const payload = {
+          txHash,
+          paymentTxHash,
+          calculatedPrice,
+          chainId,
+          registrationCostEth: estimatedCostEth
+        };
+        console.log("[Frontend] Sending blockchain hash update:", payload);
+
         await fetch(`/api/contracts/${contract.id}/blockchain-hash`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            txHash,
-            paymentTxHash,
-            calculatedPrice,
-            chainId,
-            registrationCostEth: estimatedCostEth
-          })
+          body: JSON.stringify(payload)
         });
 
         setBlockchainHash(txHash);
@@ -737,7 +761,7 @@ export default function ContractViewPage() {
           `✅ Contrat signé et enregistré sur la blockchain!\n` +
           (typeof chainId !== 'undefined' ? `🔗 Chain ID: ${chainId}\n` : '') +
           (typeof estimatedCostEth !== 'undefined' ? `⛽ Coût d'enregistrement estimé: ${estimatedCostEth.toFixed(6)} ETH\n` : '') +
-          `💰 Paiement de ${calculatedPrice} ETH effectué (basé sur ${contractText.trim().split(/\s+/).length} mots)\n` +
+          ` Paiement de ${calculatedPrice} ETH effectué (basé sur ${contractText.trim().split(/\s+/).length} mots)\n` +
           `TX: ${txHash.slice(0, 20)}...`
         );
         // Refresh contract
@@ -849,6 +873,52 @@ export default function ContractViewPage() {
     <div className="min-h-screen bg-gradient-to-br from-indigo-950 via-purple-900 to-indigo-950">
       <Navbar user={user} onLogout={handleLogout} />
 
+      {/* Blockchain Prompt Popup */}
+      {showBlockchainPopup && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-gradient-to-br from-indigo-900 to-purple-900 border border-purple-500/50 rounded-2xl shadow-2xl p-8 max-w-lg w-full transform transition-all scale-100">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg shadow-green-500/30">
+                <Wallet className="w-8 h-8 text-white" />
+              </div>
+              <h2 className="text-2xl font-bold text-white mb-2">Félicitations !</h2>
+              <p className="text-purple-200">
+                Le contrat est signé par les deux parties. Il est maintenant temps de l'enregistrer sur la blockchain pour le rendre immuable.
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <button
+                onClick={() => {
+                  setShowBlockchainPopup(false);
+                  handleBlockchainSign();
+                }}
+                disabled={isBlockchainLoading}
+                className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-xl shadow-lg transition-all transform hover:scale-[1.02] flex items-center justify-center gap-2"
+              >
+                {isBlockchainLoading ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Signature en cours...
+                  </>
+                ) : (
+                  <>
+                    <Wallet size={20} />
+                    Enregistrer sur Blockchain maintenant
+                  </>
+                )}
+              </button>
+              <button
+                onClick={() => setShowBlockchainPopup(false)}
+                className="w-full py-3 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-xl transition-colors"
+              >
+                Plus tard
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="pt-20 pb-12 px-4">
         <div className="max-w-5xl mx-auto space-y-6">
           {/* Header */}
@@ -880,29 +950,47 @@ export default function ContractViewPage() {
               <span
                 className={`px-4 py-2 rounded-full text-sm font-semibold ${isSigned
                   ? "bg-green-500 text-white"
-                  : contract.status === "pending_counterparty"
-                    ? "bg-yellow-500 text-white"
-                    : "bg-gray-500 text-white"
+                  : contract.status === "pending_acceptance"
+                    ? "bg-blue-500 text-white"
+                    : contract.status === "pending_counterparty"
+                      ? "bg-yellow-500 text-white"
+                      : contract.status === "purchased"
+                        ? "bg-purple-500 text-white"
+                        : "bg-gray-500 text-white"
                   }`}
               >
                 {isSigned
-                  ? "✓ Signé"
-                  : contract.status === "pending_counterparty"
-                    ? "En attente"
-                    : "Brouillon"}
+                  ? (contract.blockchain_hash ? "✓ Signé sur Blockchain" : "✓ Signé")
+                  : contract.status === "pending_acceptance"
+                    ? "En attente d'acceptation"
+                    : contract.status === "pending_counterparty"
+                      ? "En attente de contrepartie"
+                      : contract.status === "purchased"
+                        ? "Acheté - Assigner une contrepartie"
+                        : "Brouillon"}
               </span>
 
-              <div className="flex items-center gap-4 text-sm text-purple-200">
-                <span>
-                  {isInitiator ? "Vous (Créateur)" : "Vous (Contrepartie)"}
-                  {userHasAgreed ? " ✓ Accepté" : " ⏳ En attente"}
+              {/* Only show agreement status if counterparty is assigned */}
+              {contract.counterparty_id && (
+                <div className="flex items-center gap-4 text-sm text-purple-200">
+                  <span>
+                    {isInitiator ? "Vous (Créateur)" : "Vous (Contrepartie)"}
+                    {userHasAgreed ? " ✓ Accepté" : " ⏳ En attente"}
+                  </span>
+                  <span>•</span>
+                  <span>
+                    {isInitiator ? "Contrepartie" : "Créateur"}
+                    {otherPartyHasAgreed ? " ✓ Accepté" : " ⏳ En attente"}
+                  </span>
+                </div>
+              )}
+
+              {/* Transaction Hash Mini Badge */}
+              {contract.blockchain_hash && (
+                <span className="px-3 py-1 bg-indigo-500/30 border border-indigo-500/50 rounded-full text-xs font-mono text-indigo-200">
+                  TX: {contract.blockchain_hash.slice(0, 8)}...
                 </span>
-                <span>•</span>
-                <span>
-                  {isInitiator ? "Contrepartie" : "Créateur"}
-                  {otherPartyHasAgreed ? " ✓ Accepté" : " ⏳ En attente"}
-                </span>
-              </div>
+              )}
             </div>
           </div>
 
@@ -956,11 +1044,14 @@ export default function ContractViewPage() {
               <h2 className="text-xl font-bold text-white">Contenu du contrat</h2>
               <div className="flex items-center gap-3">
                 {canEdit && (
-                  <span className="text-purple-300 text-sm">
-                    {autoSaveStatus === "saving" && "💾 Sauvegarde..."}
-                    {autoSaveStatus === "saved" && "✓ Sauvegardé"}
-                    {autoSaveStatus === "idle" && "Mode édition"}
-                  </span>
+                  <>
+                    {hasUnsavedChanges && (
+                      <span className="text-yellow-300 text-sm">Modifications non sauvegardées</span>
+                    )}
+                    {!hasUnsavedChanges && (
+                      <span className="text-green-300 text-sm">Sauvegardé</span>
+                    )}
+                  </>
                 )}
                 {!isSigned && !canEdit && (
                   <span className="text-purple-300 text-sm">Mode lecture</span>
@@ -970,7 +1061,7 @@ export default function ContractViewPage() {
 
             {isSigned && (
               <div className="mb-4 bg-yellow-900/30 border border-yellow-500/30 rounded-lg p-3 text-yellow-200 text-sm">
-                ⚠️ Ce contrat est signé et ne peut plus être modifié.
+                Ce contrat est signé et ne peut plus être modifié.
               </div>
             )}
 
@@ -983,7 +1074,19 @@ export default function ContractViewPage() {
 
             {/* Action Buttons */}
             <div className="mt-6 flex gap-4 flex-wrap">
-              {!isSigned && !userHasAgreed && (
+              {/* Save Changes Button - show when editing */}
+              {canEdit && (
+                <button
+                  onClick={saveContract}
+                  disabled={isSaving || !hasUnsavedChanges}
+                  className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSaving ? "Sauvegarde..." : "Sauvegarder les modifications"}
+                </button>
+              )}
+
+              {/* Only show accept button if counterparty is assigned and user hasn't agreed yet */}
+              {!isSigned && !userHasAgreed && contract.counterparty_id && (
                 <button
                   onClick={acceptContract}
                   disabled={isAccepting}
@@ -991,6 +1094,24 @@ export default function ContractViewPage() {
                 >
                   {isAccepting ? "Traitement..." : "J'accepte ce contrat"}
                 </button>
+              )}
+
+              {/* Revoke Agreement Button - show when user has agreed but contract not fully signed */}
+              {!isSigned && userHasAgreed && contract.counterparty_id && (
+                <button
+                  onClick={revokeAgreement}
+                  disabled={isRevoking}
+                  className="px-6 py-3 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isRevoking ? "Révocation..." : "⚠ Révoquer mon accord"}
+                </button>
+              )}
+
+              {/* Show message if no counterparty assigned yet */}
+              {!contract.counterparty_id && isInitiator && (
+                <div className="px-6 py-3 bg-yellow-500/20 border border-yellow-500/50 text-yellow-200 rounded-lg font-semibold">
+                  ⚠ Assignez une contrepartie avant d'accepter
+                </div>
               )}
 
               {userHasAgreed && !isSigned && (
@@ -1005,14 +1126,14 @@ export default function ContractViewPage() {
                 </div>
               )}
 
-              {isSigned && (
+              {isSigned && !contract.blockchain_hash && isInitiator && (
                 <button
                   onClick={handleBlockchainSign}
-                  disabled={isBlockchainLoading || (!!contract.blockchain_hash && !!blockchainHash)}
+                  disabled={isBlockchainLoading}
                   className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 flex items-center gap-2"
                 >
                   <Wallet size={20} />
-                  {isBlockchainLoading ? "Signature en cours..." : contract.blockchain_hash ? "Voir sur Blockchain (Signé)" : "Signer sur Blockchain"}
+                  {isBlockchainLoading ? "Signature en cours..." : "Signer sur Blockchain"}
                 </button>
               )}
             </div>
@@ -1061,21 +1182,9 @@ export default function ContractViewPage() {
             )}
           </div>
 
-          {/* Suggestions */}
-          {contract.suggestions && contract.suggestions.length > 0 && (
-            <div className="bg-gradient-to-br from-amber-900/50 to-yellow-900/50 backdrop-blur-sm border border-amber-500/20 rounded-2xl shadow-2xl p-6">
-              <h3 className="text-xl font-bold text-amber-200 mb-4">
-                Suggestions / Points d'attention
-              </h3>
-              <ul className="list-disc list-inside space-y-2 text-amber-100">
-                {contract.suggestions.map((suggestion, index) => (
-                  <li key={index}>{suggestion}</li>
-                ))}
-              </ul>
-            </div>
-          )}
+
         </div>
       </div>
-    </div>
+    </div >
   );
 }

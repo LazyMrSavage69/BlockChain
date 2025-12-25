@@ -125,7 +125,7 @@ export class ContractsController {
     const contract = await this.contractsService.updateContract(id, {
       counterpartyId: body.counterpartyId,
       status: 'pending_counterparty'
-    } as any);
+    });
 
     return {
       success: true,

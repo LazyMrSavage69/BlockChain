@@ -18,14 +18,14 @@ interface ContractClause {
 interface Contract {
   id: string;
   initiator_id: number;
-  counterparty_id: number;
+  counterparty_id: number | null; // Can be null for purchased templates
   title: string;
   summary: string;
   clauses: ContractClause[];
   suggestions: string[];
   initiator_agreed: boolean;
   counterparty_agreed: boolean;
-  status: string;
+  status: string; // 'draft', 'purchased', 'pending_counterparty', 'pending_acceptance', 'fully_signed', 'archived'
   created_at: string;
   updated_at: string;
 }
@@ -45,6 +45,7 @@ export default function ContractsPage() {
   const [isLoadingContracts, setIsLoadingContracts] = useState(false);
   const [showUsageModal, setShowUsageModal] = useState(false);
   const [usageInfo, setUsageInfo] = useState<UsageCheck | null>(null);
+  const [purchaseSuccess, setPurchaseSuccess] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -55,8 +56,42 @@ export default function ContractsPage() {
     if (user) {
       fetchContracts();
       checkUsage();
+
+      // Check for purchase success parameter
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('purchase') === 'success') {
+        setPurchaseSuccess(true);
+        // Remove the query parameter from URL
+        window.history.replaceState({}, '', '/contractspage');
+
+        // Auto-dismiss banner after 10 seconds
+        setTimeout(() => setPurchaseSuccess(false), 10000);
+
+        // Implement smart polling for purchased contracts
+        console.log('[ContractsPage] Purchase detected, starting smart polling...');
+        let pollCount = 0;
+        const maxPolls = 15; // Poll for up to 30 seconds (15 polls * 2 seconds)
+
+        const pollForContract = () => {
+          pollCount++;
+          console.log(`[ContractsPage] Polling attempt ${pollCount}/${maxPolls}...`);
+
+          fetchContracts();
+
+          if (pollCount < maxPolls) {
+            setTimeout(pollForContract, 2000); // Poll every 2 seconds
+          } else {
+            console.log('[ContractsPage] Polling timeout reached. Contract may not have been created.');
+            // Show error message to user
+            setPurchaseSuccess(false);
+          }
+        };
+
+        // Start polling after 1 second
+        setTimeout(pollForContract, 1000);
+      }
     }
-  }, [user]);
+  }, [user]); // Only depend on user, not on window.location.search
 
   const fetchUser = async () => {
     try {
@@ -92,8 +127,8 @@ export default function ContractsPage() {
         if (data.success && data.data) {
           const created = data.data.created || [];
           const received = data.data.received || [];
-          console.log("[ContractsPage] Fetched contracts:", { 
-            created: created.length, 
+          console.log("[ContractsPage] Fetched contracts:", {
+            created: created.length,
             received: received.length,
             createdIds: created.map((c: Contract) => c.id),
             receivedIds: received.map((c: Contract) => c.id)
@@ -158,8 +193,11 @@ export default function ContractsPage() {
   const getStatusBadge = (status: string) => {
     const statusMap: Record<string, { text: string; className: string }> = {
       draft: { text: 'Brouillon', className: 'bg-gray-500' },
+      purchased: { text: 'Acheté', className: 'bg-purple-500' },
       pending_counterparty: { text: 'En attente', className: 'bg-yellow-500' },
+      pending_acceptance: { text: 'En attente d\'acceptation', className: 'bg-blue-500' },
       fully_signed: { text: 'Signé', className: 'bg-green-500' },
+      archived: { text: 'Archivé', className: 'bg-gray-600' },
     };
 
     const statusInfo = statusMap[status] || statusMap.draft;
@@ -186,6 +224,25 @@ export default function ContractsPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-950 via-purple-900 to-indigo-950">
       <Navbar user={user} onLogout={handleLogout} />
+
+      {/* Purchase Success Banner */}
+      {purchaseSuccess && (
+        <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50">
+          <div className="bg-green-500 text-white px-6 py-4 rounded-lg shadow-2xl border-2 border-green-300 flex items-center gap-3">
+            <div className="animate-spin rounded-full h-6 w-6 border-2 border-white border-t-transparent"></div>
+            <div>
+              <p className="font-bold">Contrat acheté avec succès!</p>
+              <p className="text-sm">Création du contrat en cours... Veuillez patienter.</p>
+            </div>
+            <button
+              onClick={() => setPurchaseSuccess(false)}
+              className="ml-4 text-white hover:text-green-200"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Usage Limit Modal */}
       {showUsageModal && usageInfo && (
@@ -280,9 +337,21 @@ export default function ContractsPage() {
 
           {/* Created Contracts Section */}
           <div className="bg-gradient-to-br from-purple-900/50 to-indigo-900/50 backdrop-blur-sm border border-purple-500/20 rounded-2xl shadow-2xl p-8">
-            <h2 className="text-2xl font-bold text-white mb-6">
-              Contrats créés par moi ({createdContracts.length})
-            </h2>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-white">
+                Contrats créés par moi ({createdContracts.length})
+              </h2>
+              <button
+                onClick={() => fetchContracts()}
+                disabled={isLoadingContracts}
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Actualiser
+              </button>
+            </div>
 
             {isLoadingContracts ? (
               <div className="text-center py-8">

@@ -140,8 +140,8 @@ Génère un contrat professionnel, détaillé et juridiquement solide.`;
       } catch (error: any) {
         const isLastAttempt = attempt === maxRetries;
         const isTimeout = error.name === 'AbortError';
-        const isConnectionError = 
-          error.code === 'ECONNRESET' || 
+        const isConnectionError =
+          error.code === 'ECONNRESET' ||
           error.code === 'ETIMEDOUT' ||
           error.message?.includes('fetch failed') ||
           error.message?.includes('socket disconnected');
@@ -194,9 +194,20 @@ Génère un contrat professionnel, détaillé et juridiquement solide.`;
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
       console.error("Erreur AIML API:", aiResponse.status, errorText);
+
+      let userMsg = `La génération du contrat a échoué côté AI (Status: ${aiResponse.status}).`;
+
+      if (aiResponse.status === 429) {
+        userMsg = "Limite de quota API atteinte (429). Veuillez réessayer plus tard ou vérifier votre forfait AIML.";
+      } else if (aiResponse.status === 401) {
+        userMsg = "Clé API invalide ou non autorisée (401). Vérifiez la configuration AI_API_KEY.";
+      } else if (aiResponse.status === 503 || aiResponse.status === 504) {
+        userMsg = "Service AI temporairement indisponible. Veuillez réessayer.";
+      }
+
       return NextResponse.json(
         {
-          error: "La génération du contrat a échoué côté AI.",
+          error: userMsg,
           details: errorText,
         },
         { status: aiResponse.status },
@@ -259,11 +270,11 @@ Génère un contrat professionnel, détaillé et juridiquement solide.`;
     return NextResponse.json({ contract: contractPayload });
   } catch (error: unknown) {
     console.error("Erreur lors de l'appel AIML API:", error);
-    
+
     // Provide more specific error messages
     let errorMessage = "Erreur interne lors de la communication avec l'API AI.";
     let errorDetails = error instanceof Error ? error.message : "Erreur inconnue";
-    
+
     if (error instanceof Error) {
       if (error.message.includes('ECONNRESET') || error.message.includes('socket disconnected')) {
         errorMessage = "Connexion interrompue avec l'API AI. Vérifiez votre connexion réseau.";
@@ -279,7 +290,7 @@ Génère un contrat professionnel, détaillé et juridiquement solide.`;
         errorDetails = "Vérifiez que votre AI_API_KEY est correcte dans .env.production.";
       }
     }
-    
+
     return NextResponse.json(
       {
         error: errorMessage,

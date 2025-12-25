@@ -1,4 +1,4 @@
-import { IsArray, IsOptional, IsString, ValidateNested } from 'class-validator';
+import { IsArray, IsInt, IsOptional, IsString, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 
 class ClauseDto {
@@ -17,6 +17,17 @@ export class UpdateContractDto {
   @IsOptional()
   @IsString()
   summary?: string;
+
+  // Used when assigning/inviting a counterparty
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  counterpartyId?: number;
+
+  // Allow updating workflow status when needed (e.g., after counterparty assignment)
+  @IsOptional()
+  @IsString()
+  status?: string;
 
   @IsOptional()
   @IsArray()

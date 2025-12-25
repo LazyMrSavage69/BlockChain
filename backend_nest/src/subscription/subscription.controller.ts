@@ -36,7 +36,7 @@ export class SubscriptionController {
     private readonly subscriptionService: SubscriptionService,
     @Inject(forwardRef(() => ContractsService))
     private readonly contractsService: ContractsService,
-  ) {}
+  ) { }
 
   @Get('health')
   @HttpCode(HttpStatus.OK)
@@ -371,59 +371,120 @@ export class SubscriptionController {
   async handleStripeWebhook(@Req() req: Request, @Headers('stripe-signature') signature: string) {
     const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
     const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-    if (!stripeSecretKey || !webhookSecret) {
-      // Silently accept to avoid retries spamming if misconfigured
+    if (!stripeSecretKey) {
+      // If Stripe is not configured, ignore silently to avoid retries
       return { received: true };
     }
     const stripe = new Stripe(stripeSecretKey, { apiVersion: '2024-06-20' as any });
 
+    // Note: we want to process webhooks even if the webhook secret is not set (dev env)
+    // In that case, we skip signature verification but still handle the payload.
     const raw = (req as any).rawBody || (req as any).body;
+    let event: Stripe.Event | any;
+
     try {
-      const event = stripe.webhooks.constructEvent(raw, signature, webhookSecret);
+      if (webhookSecret) {
+        event = stripe.webhooks.constructEvent(raw, signature, webhookSecret);
+      } else {
+        console.warn('⚠️ STRIPE_WEBHOOK_SECRET is not set. Processing webhook without signature verification (dev mode).');
+        event = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      }
+    } catch (err) {
+      // If verification fails but we are in dev (no webhook secret), fallback to raw body
+      if (!webhookSecret) {
+        console.warn('⚠️ Failed to parse unverified webhook payload, using req.body fallback');
+        event = (req as any).body;
+      } else {
+        // Signature verification failed in production: report failure so Stripe can retry
+        console.error('❌ Stripe webhook signature verification failed:', err);
+        return { received: false };
+      }
+    }
+
+    try {
+      console.log('🎯🎯🎯 WEBHOOK RECEIVED 🎯🎯🎯', {
+        eventType: event.type,
+        eventId: event.id,
+        hasMetadata: !!(event.data.object as any).metadata,
+        metadata: (event.data.object as any).metadata,
+      });
 
       switch (event.type) {
         case 'checkout.session.completed': {
           const session = event.data.object as any;
           const metadata = session.metadata || {};
-          
+
+          console.log('🎉 Webhook: checkout.session.completed received', {
+            sessionId: session.id,
+            metadata: metadata,
+            type: metadata.type,
+          });
+
           // Check if this is a template purchase
           if (metadata.type === 'template_purchase') {
             console.log('📦 Processing template purchase webhook', {
               templateId: metadata.template_id,
               userId: metadata.user_id,
+              userEmail: metadata.user_email,
             });
-            
+
             try {
               // Update marketplace transaction status
+              console.log('💾 Updating marketplace transaction status to completed...');
               await this.contractsService.updateMarketplaceTransaction(
                 session.id,
                 'completed',
               );
-              
+              console.log('✅ Marketplace transaction updated');
+
               // Get template to find creator_id
+              console.log('📄 Fetching template details...');
               const template = await this.contractsService.getTemplateById(metadata.template_id);
               if (!template) {
-                console.error('Template not found:', metadata.template_id);
+                console.error('❌ Template not found:', metadata.template_id);
                 break;
               }
-              
+              console.log('✅ Template found:', {
+                id: template.id,
+                title: template.title,
+                creator_id: template.creator_id,
+              });
+
               // Create contract from template
               // Note: creator_id might be UUID, we need to handle this
               const creatorId = template.creator_id ? parseInt(template.creator_id.toString()) : parseInt(metadata.user_id);
               const buyerId = parseInt(metadata.user_id);
-              
+
+              console.log('🔨 Creating contract from template...', {
+                templateId: metadata.template_id,
+                buyerId,
+                creatorId,
+              });
+
               const contract = await this.contractsService.createContractFromTemplate(
                 metadata.template_id,
                 buyerId,
                 creatorId,
               );
-              
-              console.log('✅ Contract created from template:', contract.id);
+
+              console.log('✅✅✅ CONTRACT CREATED SUCCESSFULLY ✅✅✅', {
+                contractId: contract.id,
+                title: contract.title,
+                status: contract.status,
+                ownerId: (contract as any).owner_id,
+                initiatorId: contract.initiator_id,
+              });
             } catch (error) {
-              console.error('❌ Error processing template purchase:', error);
+              console.error('❌❌❌ ERROR PROCESSING TEMPLATE PURCHASE ❌❌❌', {
+                error: error instanceof Error ? error.message : String(error),
+                stack: error instanceof Error ? error.stack : undefined,
+                templateId: metadata.template_id,
+                userId: metadata.user_id,
+              });
             }
           } else {
             // Regular subscription payment
+            console.log('💳 Processing subscription payment webhook');
             await this.subscriptionService.updateTransactionStatusByProviderId(
               session.id,
               'completed',
@@ -434,7 +495,7 @@ export class SubscriptionController {
         case 'checkout.session.expired': {
           const session = event.data.object as any;
           const metadata = session.metadata || {};
-          
+
           if (metadata.type === 'template_purchase') {
             await this.contractsService.updateMarketplaceTransaction(
               session.id,

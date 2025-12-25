@@ -3,7 +3,7 @@ export interface Contract {
   template_id?: string | null;
   owner_id: number;
   initiator_id: number;
-  counterparty_id: number;
+  counterparty_id: number | null; // NULL until a counterparty is assigned
   title: string;
   summary: string;
   content?: any; // JSONB
@@ -14,7 +14,7 @@ export interface Contract {
   suggestions: string[];
   raw_text?: string | null;
   metadata?: any; // JSONB
-  status: string;
+  status: string; // 'draft', 'purchased', 'pending_counterparty', 'pending_acceptance', 'fully_signed', 'archived'
   initiator_agreed: boolean;
   counterparty_agreed: boolean;
   generated_by?: string;

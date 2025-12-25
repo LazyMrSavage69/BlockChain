@@ -280,7 +280,7 @@ export default function AskAiPage() {
           clauses: contract.clauses,
           suggestions: contract.suggestions ?? [],
           rawText: contract.rawText ?? null,
-          initiatorAgreed: creatorAgreed,
+          initiatorAgreed: false, // Ensure it is not automatically agreed upon creation
           counterpartyAgreed: false,
           status,
           userEmail: user.email,
@@ -563,8 +563,8 @@ export default function AskAiPage() {
                   {isGenerating
                     ? "Génération en cours..."
                     : isBlocked
-                    ? "Limite atteinte - Mettre à niveau"
-                    : "Générer le contrat"}
+                      ? "Limite atteinte - Mettre à niveau"
+                      : "Générer le contrat"}
                 </button>
               </div>
             </form>
@@ -695,28 +695,45 @@ export default function AskAiPage() {
                 {searchError && <p className="text-sm text-red-300">{searchError}</p>}
 
                 {counterpartyResult && (
-                  <div className="rounded-lg border border-purple-500/30 bg-indigo-950/60 p-4">
-                    <p className="text-purple-100 font-semibold">
-                      Invité : {counterpartyResult.name}
-                    </p>
-                    <p className="text-purple-200 mt-2">
-                      Une invitation sera envoyée pour que la contrepartie lise et signe le contrat dans son espace.
-                    </p>
+                  <div className="rounded-lg border border-purple-500/30 bg-indigo-950/60 p-4 space-y-4">
+                    <div>
+                      <p className="text-purple-100 font-semibold">
+                        Invité : {counterpartyResult.name}
+                      </p>
+                      <p className="text-purple-200 mt-2 text-sm">
+                        Une invitation sera envoyée pour que la contrepartie lise et signe le contrat dans son espace.
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!creatorAgreed) {
+                          alert("Veuillez cocher la case 'Votre validation' avant d'envoyer le contrat.");
+                          return;
+                        }
+                        handleFinalizeContract();
+                      }}
+                      disabled={isFinalizeDisabled}
+                      className="w-full px-6 py-3 bg-emerald-500 hover:bg-emerald-400 text-white font-semibold rounded-lg shadow-lg transition disabled:bg-emerald-200 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      {pendingFinalize ? (
+                        <>
+                          <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          Envoi en cours...
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                          </svg>
+                          Envoyer le contrat à {counterpartyResult.name}
+                        </>
+                      )}
+                    </button>
                   </div>
                 )}
               </div>
-            </div>
-
-            <div className="mt-6">
-              <button
-                type="button"
-                onClick={handleFinalizeContract}
-                disabled={isFinalizeDisabled}
-                className="w-full md:w-auto px-8 py-3 bg-emerald-500 hover:bg-emerald-400 text-white font-semibold rounded-full shadow-lg transition disabled:bg-emerald-200 disabled:cursor-not-allowed"
-              >
-                {pendingFinalize ? "Préparation..." : "Finaliser et envoyer pour signature"}
-              </button>
-              {/* Texte informatif supprimé à la demande: pas de mention de consignation backend ni déclenchement signatures ici */}
             </div>
           </section>
 
