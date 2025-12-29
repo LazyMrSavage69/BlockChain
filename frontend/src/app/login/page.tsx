@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import Navbar from "../navbar/page";
 
-export default function Login(){
+export default function Login() {
   const router = useRouter();
   const [isSignUp, setIsSignUp] = useState(true);
   const [showVerification, setShowVerification] = useState(false);
@@ -13,7 +13,7 @@ export default function Login(){
   const [verificationCode, setVerificationCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  
+
   // Form data
   const [formData, setFormData] = useState({
     name: "",
@@ -40,7 +40,8 @@ export default function Login(){
   };
 
   const handleGoogleLogin = () => {
-    window.location.href = "http://localhost:8000/auth/google";
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://4.251.143.80.nip.io";
+    window.location.href = `${apiUrl}/auth/google`;
   };
 
   // Check if user has avatar and redirect accordingly
@@ -130,7 +131,7 @@ export default function Login(){
 
       if (response.ok) {
         console.log('Login successful, checking avatar status...');
-        
+
         // Get user info first
         const userResponse = await fetch('/api/me', {
           credentials: 'include',
@@ -247,7 +248,7 @@ export default function Login(){
   return (
     <main className="min-h-screen bg-gradient-to-b from-indigo-950 via-purple-900 to-indigo-950">
       <Navbar user={null} />
-      
+
       <div className="pt-16 min-h-screen flex items-center justify-center px-4">
         <div className="w-full max-w-4xl">
           <div className="bg-gradient-to-br from-indigo-900/80 to-purple-900/80 backdrop-blur-lg rounded-2xl border border-purple-500/30 shadow-2xl overflow-hidden">

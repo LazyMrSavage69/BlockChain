@@ -14,7 +14,7 @@ import express from 'express';
 
 @Controller('messages')
 export class MessagesController {
-  constructor(private readonly messagesService: MessagesService) {}
+  constructor(private readonly messagesService: MessagesService) { }
 
   private async getUserIdFromRequest(req: express.Request): Promise<number> {
     // Try to get from query params
@@ -32,10 +32,11 @@ export class MessagesController {
     if (sessionToken) {
       try {
         // Try using gateway URL first (for Docker), then fallback to direct auth service
-        const gatewayUrl = process.env.GATEWAY_URL || 'http://localhost:8000';
-        const authServiceUrl = process.env.AUTH_SERVICE_URL || 
+        const gatewayUrl = process.env.GATEWAY_URL ||
+          (process.env.NODE_ENV === 'production' ? 'http://gateway-service:8000' : 'http://localhost:8000');
+        const authServiceUrl = process.env.AUTH_SERVICE_URL ||
           (process.env.NODE_ENV === 'production' ? 'http://auth-service:3060' : 'http://localhost:3060');
-        
+
         // Try gateway first (recommended for Docker)
         let response;
         try {
@@ -51,7 +52,7 @@ export class MessagesController {
             },
           });
         }
-        
+
         if (response.ok) {
           const user = await response.json();
           return user.id;
@@ -73,29 +74,29 @@ export class MessagesController {
     console.log('🔍 MessagesController - sendMessage called');
     console.log('🔍 MessagesController - Request body:', JSON.stringify(req.body));
     console.log('🔍 MessagesController - createDto:', JSON.stringify(createDto));
-    
+
     // Manual validation
     if (!createDto || !createDto.receiver_id) {
       console.error('🔍 MessagesController - Missing receiver_id');
       throw new BadRequestException('receiver_id is required');
     }
-    
+
     if (!createDto || !createDto.content || createDto.content.trim().length === 0) {
       console.error('🔍 MessagesController - Missing or empty content');
       throw new BadRequestException('content is required and cannot be empty');
     }
-    
+
     try {
       const senderId = await this.getUserIdFromRequest(req);
       console.log('🔍 MessagesController - Sender ID:', senderId);
-      
+
       const properDto: CreateMessageDto = {
-        receiver_id: typeof createDto.receiver_id === 'number' 
-          ? createDto.receiver_id 
+        receiver_id: typeof createDto.receiver_id === 'number'
+          ? createDto.receiver_id
           : parseInt(String(createDto.receiver_id), 10),
         content: createDto.content,
       };
-      
+
       const message = await this.messagesService.sendMessage(senderId, properDto);
       return {
         success: true,

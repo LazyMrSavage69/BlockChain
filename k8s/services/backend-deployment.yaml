@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-nest
+  namespace: blockchain-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend-nest
+  template:
+    metadata:
+      labels:
+        app: backend-nest
+    spec:
+      containers:
+      - name: backend-nest
+        image: blockchainacr.azurecr.io/backend-nest:latest
+        ports:
+        - containerPort: 5000
+          name: http
+        env:
+        - name: PORT
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: BACKEND_PORT
+        - name: NODE_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: NODE_ENV
+        - name: SUPABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: SUPABASE_URL
+        - name: SUPABASE_ANON_KEY
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: SUPABASE_ANON_KEY
+        - name: AUTH_SERVICE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: AUTH_SERVICE_URL
+        - name: GATEWAY_URL
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: GATEWAY_URL
+        - name: STRIPE_WEBHOOK_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: STRIPE_WEBHOOK_SECRET
+        - name: STRIPE_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: STRIPE_SECRET_KEY
+        - name: BLOCKCHAIN_RPC_URL
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: BLOCKCHAIN_RPC_URL
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 10
+          periodSeconds: 5

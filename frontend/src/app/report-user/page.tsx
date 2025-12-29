@@ -15,7 +15,8 @@ export default function ReportUser() {
         setMessage(null);
 
         try {
-            const response = await fetch('http://localhost:8000/api/report', {
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://4.251.143.80.nip.io';
+            const response = await fetch(`${apiUrl}/api/report`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

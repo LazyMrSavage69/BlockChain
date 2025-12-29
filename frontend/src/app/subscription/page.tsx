@@ -49,52 +49,52 @@ const PLANS: Array<{
   features: string[];
   highlight?: boolean;
 }> = [
-  {
-    id: 'FREE',
-    name: 'Free',
-    priceDisplay: '$0',
-    priceAmount: 0,
-    features: [
-      'Access to 1 free contract template',
-      'Basic contract customization',
-      'Community support',
-      'Read-only marketplace access',
-    ],
-  },
-  {
-    id: 'STANDARD',
-    name: 'Standard',
-    priceDisplay: '$29',
-    priceAmount: 29,
-    features: [
-      'Up to 10 contracts per day',
-      'Access to all marketplace templates',
-      'Advanced customization tools',
-      'Multi-party signature support',
-      'Priority email support',
-      'Blockchain verification',
-      'Version history tracking',
-    ],
-    highlight: true,
-  },
-  {
-    id: 'CREATOR',
-    name: 'Creator',
-    priceDisplay: '$99',
-    priceAmount: 99,
-    features: [
-      'Unlimited contract usage',
-      'Create & submit custom templates',
-      'Sell templates on marketplace',
-      '70% revenue share on sales',
-      'Featured creator badge',
-      'Analytics dashboard',
-      '24/7 priority support',
-      'Early access to new features',
-      'Custom branding options',
-    ],
-  },
-];
+    {
+      id: 'FREE',
+      name: 'Free',
+      priceDisplay: '$0',
+      priceAmount: 0,
+      features: [
+        'Access to 1 free contract template',
+        'Basic contract customization',
+        'Community support',
+        'Read-only marketplace access',
+      ],
+    },
+    {
+      id: 'STANDARD',
+      name: 'Standard',
+      priceDisplay: '$29',
+      priceAmount: 29,
+      features: [
+        'Up to 10 contracts per day',
+        'Access to all marketplace templates',
+        'Advanced customization tools',
+        'Multi-party signature support',
+        'Priority email support',
+        'Blockchain verification',
+        'Version history tracking',
+      ],
+      highlight: true,
+    },
+    {
+      id: 'CREATOR',
+      name: 'Creator',
+      priceDisplay: '$99',
+      priceAmount: 99,
+      features: [
+        'Unlimited contract usage',
+        'Create & submit custom templates',
+        'Sell templates on marketplace',
+        '70% revenue share on sales',
+        'Featured creator badge',
+        'Analytics dashboard',
+        '24/7 priority support',
+        'Early access to new features',
+        'Custom branding options',
+      ],
+    },
+  ];
 
 function titleCasePlan(p?: string) {
   if (!p) return '';
@@ -116,7 +116,7 @@ export default function Subscription() {
   const [loadingData, setLoadingData] = useState(false);
 
   const [isSubmitting, setIsSubmitting] = useState<PlanId | null>(null);
-  const apiBase = useMemo(() => process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000', []);
+  const apiBase = useMemo(() => process.env.NEXT_PUBLIC_API_URL ?? 'http://4.251.143.80.nip.io', []);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -305,16 +305,14 @@ export default function Subscription() {
         {PLANS.map((plan) => (
           <div
             key={plan.id}
-            className={`rounded-2xl overflow-hidden border transition-all ${
-              plan.highlight
-                ? 'border-orange-500 shadow-lg shadow-orange-500/20'
-                : 'border-gray-800'
-            } bg-gradient-to-br from-gray-900 to-gray-800`}
+            className={`rounded-2xl overflow-hidden border transition-all ${plan.highlight
+              ? 'border-orange-500 shadow-lg shadow-orange-500/20'
+              : 'border-gray-800'
+              } bg-gradient-to-br from-gray-900 to-gray-800`}
           >
             <div
-              className={`p-6 ${
-                plan.highlight ? 'bg-gradient-to-r from-orange-500 to-orange-600' : 'bg-black/20'
-              }`}
+              className={`p-6 ${plan.highlight ? 'bg-gradient-to-r from-orange-500 to-orange-600' : 'bg-black/20'
+                }`}
             >
               <h3 className="text-2xl font-bold text-white">{plan.name}</h3>
               <p className="text-white text-4xl font-extrabold mt-2">
@@ -336,11 +334,10 @@ export default function Subscription() {
               <button
                 disabled={isSubmitting !== null || plan.id === currentPlanId}
                 onClick={() => handleChoosePlan(plan.id)}
-                className={`w-full mt-4 px-6 py-3 rounded-lg font-medium transition-all ${
-                  plan.highlight
-                    ? 'bg-black/20 hover:bg-black/30 text-white border border-white/20'
-                    : 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white shadow-lg'
-                } ${isSubmitting === plan.id ? 'opacity-70 cursor-wait' : ''}`}
+                className={`w-full mt-4 px-6 py-3 rounded-lg font-medium transition-all ${plan.highlight
+                  ? 'bg-black/20 hover:bg-black/30 text-white border border-white/20'
+                  : 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white shadow-lg'
+                  } ${isSubmitting === plan.id ? 'opacity-70 cursor-wait' : ''}`}
               >
                 {isSubmitting === plan.id ? 'Processing...' : 'Choose Plan'}
               </button>
@@ -354,7 +351,7 @@ export default function Subscription() {
   if (isLoadingUser) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-indigo-950 via-purple-900 to-indigo-950">
-        <Navbar user={user} onLogout={async () => {}} />
+        <Navbar user={user} onLogout={async () => { }} />
         <div className="pt-24 flex items-center justify-center">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-500" />
         </div>

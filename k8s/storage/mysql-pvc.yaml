@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysql-pvc
+  namespace: blockchain-app
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: default  # Changed from managed-premium to default (Standard storage)
+  resources:
+    requests:
+      storage: 10Gi

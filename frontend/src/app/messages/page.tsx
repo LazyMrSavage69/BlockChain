@@ -40,7 +40,7 @@ export default function MessagesPage() {
   const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const GATEWAY_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  const GATEWAY_URL = process.env.NEXT_PUBLIC_API_URL || "http://4.251.143.80.nip.io";
 
   useEffect(() => {
     fetchUser();
@@ -81,12 +81,12 @@ export default function MessagesPage() {
         },
         (payload) => {
           const newMessage = payload.new as any;
-          
+
           // Verify it's from the selected friend
           if (newMessage.sender_id === selectedFriend.id) {
             console.log('✅ New message received via Realtime (receiver):', payload);
             subscriptionActive = true;
-            
+
             // Add message directly to state (optimistic update)
             const messageWithUsers: Message = {
               ...newMessage,
@@ -94,10 +94,10 @@ export default function MessagesPage() {
               receiver: user,
             };
             setMessages((prev) => [...prev, messageWithUsers]);
-            
+
             // Update conversations list
             fetchConversations();
-            
+
             // Mark as read
             markConversationAsRead(selectedFriend.id);
           }
@@ -127,12 +127,12 @@ export default function MessagesPage() {
         },
         (payload) => {
           const newMessage = payload.new as any;
-          
+
           // Verify it's to the selected friend
           if (newMessage.receiver_id === selectedFriend.id) {
             console.log('✅ New message received via Realtime (sender):', payload);
             subscriptionActive = true;
-            
+
             // Add message directly to state (optimistic update)
             const messageWithUsers: Message = {
               ...newMessage,
@@ -145,7 +145,7 @@ export default function MessagesPage() {
               if (exists) return prev;
               return [...prev, messageWithUsers];
             });
-            
+
             // Update conversations list
             fetchConversations();
           }
@@ -197,7 +197,7 @@ export default function MessagesPage() {
         },
         (payload) => {
           const newMessage = payload.new as any;
-          
+
           // Filter: only process messages where user is sender or receiver
           if (newMessage.sender_id === user.id || newMessage.receiver_id === user.id) {
             console.log('New message in any conversation:', payload);
@@ -215,7 +215,7 @@ export default function MessagesPage() {
         },
         (payload) => {
           const updatedMessage = payload.new as any;
-          
+
           // Filter: only process messages where user is sender or receiver
           if (updatedMessage.sender_id === user.id || updatedMessage.receiver_id === user.id) {
             console.log('Message updated in any conversation:', payload);
@@ -342,7 +342,7 @@ export default function MessagesPage() {
         const data = await response.json();
         if (data.success) {
           setNewMessage("");
-          
+
           // Optimistically add the message to the UI immediately
           const optimisticMessage: Message = {
             ...data.data,
@@ -355,10 +355,10 @@ export default function MessagesPage() {
             if (exists) return prev;
             return [...prev, optimisticMessage];
           });
-          
+
           // Update conversations list
           fetchConversations();
-          
+
           // Also fetch to ensure we have the latest (in case of any sync issues)
           setTimeout(() => {
             fetchMessages(selectedFriend.id);
@@ -425,11 +425,10 @@ export default function MessagesPage() {
                     <button
                       key={conversation.friend.id}
                       onClick={() => setSelectedFriend(conversation.friend)}
-                      className={`w-full p-4 text-left hover:bg-indigo-800/50 transition-colors ${
-                        selectedFriend?.id === conversation.friend.id
-                          ? "bg-indigo-800/70"
-                          : ""
-                      }`}
+                      className={`w-full p-4 text-left hover:bg-indigo-800/50 transition-colors ${selectedFriend?.id === conversation.friend.id
+                        ? "bg-indigo-800/70"
+                        : ""
+                        }`}
                     >
                       <div className="flex items-center gap-3">
                         {conversation.friend.avatar ? (
@@ -529,17 +528,15 @@ export default function MessagesPage() {
                           className={`flex ${isOwnMessage ? "justify-end" : "justify-start"}`}
                         >
                           <div
-                            className={`max-w-[70%] rounded-lg p-3 ${
-                              isOwnMessage
-                                ? "bg-purple-600 text-white"
-                                : "bg-indigo-800 text-white"
-                            }`}
+                            className={`max-w-[70%] rounded-lg p-3 ${isOwnMessage
+                              ? "bg-purple-600 text-white"
+                              : "bg-indigo-800 text-white"
+                              }`}
                           >
                             <p className="text-sm">{message.content}</p>
                             <p
-                              className={`text-xs mt-1 ${
-                                isOwnMessage ? "text-purple-200" : "text-purple-300"
-                              }`}
+                              className={`text-xs mt-1 ${isOwnMessage ? "text-purple-200" : "text-purple-300"
+                                }`}
                             >
                               {formatTime(message.created_at)}
                             </p>

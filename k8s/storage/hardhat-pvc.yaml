@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: hardhat-pvc
+  namespace: blockchain-app
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: default  # Changed to default (Standard storage)
+  resources:
+    requests:
+      storage: 5Gi

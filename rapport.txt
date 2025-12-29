@@ -1,0 +1,1047 @@
+%!TEX program = lualatex
+\documentclass[12pt,a4paper]{report}
+\usepackage{fontspec}
+\usepackage{polyglossia}
+\setmainlanguage{french}
+\setotherlanguage{arabic}
+\newfontfamily\arabicfont[Script=Arabic]{Arial}
+\usepackage{graphicx}
+\usepackage{geometry}
+\geometry{top=2.5cm, bottom=2.5cm, left=2.5cm, right=2.5cm}
+
+% Packages pour la mise en page et le formatage
+\usepackage{float}
+\usepackage{enumitem}
+\usepackage{setspace}
+\onehalfspacing
+\usepackage{titlesec}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{caption}
+
+% Configuration des titres
+\titleformat{\chapter}[display]
+{\normalfont\huge\bfseries\centering}
+{\chaptertitlename\ \thechapter}
+{20pt}
+{\Huge}
+\titlespacing*{\chapter}{0pt}{0pt}{40pt}
+
+\titleformat{\section}
+{\normalfont\Large\bfseries}
+{\thesection.}
+{1em}
+{}
+\titlespacing*{\section}{0pt}{3.5ex plus 1ex minus .2ex}{2.3ex plus .2ex}
+
+\titleformat{\subsection}
+{\normalfont\large\bfseries}
+{\thesubsection}
+{1em}
+{}
+\titlespacing*{\subsection}{0pt}{3.25ex plus 1ex minus .2ex}{1.5ex plus .2ex}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=black,
+  citecolor=blue,
+  urlcolor=blue,
+  pdftitle={Rapport de Mini-Projet},
+  pdfauthor={Mahersi Oussama & Barhoumi Youcef}
+}
+
+% Configuration des listes
+\setlist[itemize]{label=\textbullet, leftmargin=*}
+\setlist[enumerate]{label=\arabic*., leftmargin=*}
+\setlist[description]{font=\bfseries, leftmargin=*}
+
+\begin{document}
+
+\begin{titlepage}
+  \begin{center}
+    \includegraphics[width=3.5cm]{enig.png} \\[0.5cm]
+
+    {\large \textbf{RÉPUBLIQUE TUNISIENNE}}\\[0.2cm]
+    {\large Ministère de l'Enseignement Supérieur et de la Recherche Scientifique}\\[0.2cm]
+    {\large Université de Gabès}\\[0.5cm]
+
+    {\large \textbf{École Nationale d'Ingénieurs de Gabès}}\\[0.2cm]
+    {\large Département de Génie des Communications \& des Réseaux}\\[1.5cm]
+
+    {\Large \textbf{RAPPORT DE MINI-PROJET}}\\[2cm]
+
+    {\large \textbf{Sujet :}}\\[0.5cm]
+    \fbox{\parbox{0.9\textwidth}{\centering \Large \textbf{Plateforme de Gestion de Contrats Intelligents}}}\\[2cm]
+
+    \begin{minipage}{0.45\textwidth}
+      \begin{flushleft} \large
+        \textbf{Réalisé par :}\\
+        Mahersi Oussama\\
+        Barhoumi Youcef
+      \end{flushleft}
+    \end{minipage}
+    \begin{minipage}{0.45\textwidth}
+      \begin{flushright} \large
+        \textbf{Encadré par :}\\
+        Mme Fatma Ellouze
+      \end{flushright}
+    \end{minipage}
+
+    \vfill
+
+    {\large \textbf{Année Universitaire : 2025/2026}}
+  \end{center}
+\end{titlepage}
+
+\chapter*{Remerciements}
+\addcontentsline{toc}{chapter}{Remerciements}
+
+C’est avec grand plaisir que nous réservons cette page, en signe de gratitude à tous ceux qui nous ont aidés à la réalisation de ce travail.
+
+Nous tenons à exprimer toute notre profonde gratitude à l'endroit de notre encadrante \textbf{Mme Fatma Ellouze}, pour son accompagnement constant et son soutien indéfectible tout au long de ce projet. Ses encouragements répétés, ses orientations judicieuses et sa rigueur méthodologique ont été déterminants dans l'aboutissement de ce travail. Nous lui sommes particulièrement reconnaissants pour sa disponibilité, son écoute attentive et ses qualités humaines exceptionnelles qui ont créé un environnement de travail propice à l'épanouissement et à la confiance. Son expertise et sa bienveillance nous ont permis de surmonter les difficultés rencontrées et de mener à bien ce projet dans les meilleures conditions.
+
+\tableofcontents
+\listoffigures
+\cleardoublepage
+
+\chapter*{Introduction Générale}
+\addcontentsline{toc}{chapter}{Introduction Générale}
+La transformation numérique a profondément modifié la manière dont les individus et les organisations échangent et collaborent. De plus en plus d’interactions s’effectuent à distance, ce qui soulève des enjeux importants liés à la sécurité des données, à la confidentialité des informations et à la confiance entre les parties.
+
+Dans ce contexte, la gestion des contrats numériques représente un défi majeur pour les utilisateurs. Les méthodes traditionnelles de signature reposent encore sur des démarches physiques et des documents papier, rendant les processus longs et peu flexibles. Par ailleurs, les plateformes centralisées existantes n’offrent pas toujours des garanties suffisantes en matière d’intégrité et de traçabilité des données contractuelles.
+
+La rédaction de contrats demeure également complexe pour de nombreux utilisateurs, en raison du manque d’outils intelligents capables de les assister dans la génération automatique de documents adaptés à leurs besoins.
+
+Face à ces problématiques, ce projet a pour objectif de développer une application web permettant de générer, gérer et signer des contrats numériques à distance, tout en assurant un haut niveau de sécurité et de confiance. La solution s’appuie sur les principes des applications web décentralisées et sur la technologie blockchain afin de garantir l’intégrité, l’immutabilité et la traçabilité des accords, tout en simplifiant les démarches grâce à des mécanismes intelligents.
+
+Le présent rapport est structuré en plusieurs chapitres présentant successivement le contexte et l’analyse des besoins, la conception du système, l’implémentation des fonctionnalités principales ainsi que l’évaluation des résultats et les perspectives d’évolution du projet.
+\cleardoublepage
+
+\chapter{Contexte du Projet -- Analyse \& Conception}
+
+\section{Présentation du projet}
+
+\subsection{Problématique}
+Dans un contexte où les échanges numériques connaissent une croissance exponentielle, les utilisateurs expriment un besoin croissant de \textbf{solutions fiables et sécurisées} pour communiquer, collaborer et formaliser des accords à distance. Cependant, la gestion des contrats reste largement dépendante de processus traditionnels impliquant des déplacements physiques, des documents papier et des intermédiaires, entraînant :
+\begin{itemize}
+  \item Une \textbf{perte de temps considérable} dans les processus de validation.
+  \item Des \textbf{coûts supplémentaires} liés aux intermédiaires et aux infrastructures physiques.
+  \item Un \textbf{manque de flexibilité} incompatible avec les exigences du travail moderne.
+  \item Des \textbf{risques accrus de perte ou d'altération} des documents physiques.
+\end{itemize}
+
+\paragraph{Limites des solutions centralisées}
+Les plateformes centralisées actuelles présentent plusieurs faiblesses majeures :
+\begin{enumerate}
+  \item \textbf{Manque de transparence} : l'utilisation et la conservation des informations sensibles ne sont pas toujours traçables.
+  \item \textbf{Risques de falsification} : l'absence de mécanismes cryptographiques robustes expose les contrats à des modifications non autorisées.
+  \item \textbf{Dépendance à un tiers unique} : la défaillance ou la compromission du système central menace l'intégralité des données.
+  \item \textbf{Absence de vérifiabilité indépendante} : les utilisateurs ne peuvent pas auditer l'intégrité des contrats de manière autonome.
+\end{enumerate}
+
+\paragraph{Complexité de la rédaction contractuelle}
+La rédaction de contrats demeure une tâche complexe nécessitant des \textbf{compétences juridiques spécialisées}. L'absence d'outils intelligents d'assistance basés sur l'\textbf{intelligence artificielle} constitue un frein majeur à la démocratisation des accords numériques, limitant l'accès des utilisateurs non spécialisés à des solutions contractuelles de qualité professionnelle.
+
+\subsection{Solution proposée}
+
+\subsubsection{Vue d'ensemble de la plateforme}
+Afin de répondre aux besoins identifiés, la solution proposée consiste en une \textbf{plateforme web moderne et innovante} permettant aux utilisateurs de gérer l'ensemble du cycle de vie des contrats numériques de manière simple, sécurisée et entièrement dématérialisée. Cette application supprime les contraintes liées aux signatures physiques traditionnelles en offrant une expérience utilisateur fluide et accessible à distance.
+
+\subsubsection{Fonctionnalités principales}
+La plateforme propose un ensemble complet de fonctionnalités avancées :
+\begin{description}
+  \item[Gestion des comptes utilisateurs] Système d'authentification hybride combinant \textbf{OAuth2 Google} et authentification classique par email/mot de passe, avec gestion sécurisée des sessions via \textbf{JWT (JSON Web Tokens)}.
+  \item[Génération intelligente de contrats] Utilisation de l'\textbf{intelligence artificielle} pour générer automatiquement des contrats à partir de modèles prédéfinis, avec possibilité de personnalisation complète selon les besoins spécifiques de chaque utilisateur.
+  \item[Signature numérique décentralisée] Processus de signature numérique sécurisé permettant aux parties concernées de valider les contrats sans déplacement physique, avec enregistrement cryptographique des consentements.
+  \item[Communication temps réel] Système de messagerie instantanée intégré facilitant la négociation et la collaboration entre les parties prenantes durant tout le cycle de vie du contrat.
+  \item[Marketplace de contrats] Plateforme d'échange permettant l'achat et la vente de modèles de contrats entre utilisateurs, favorisant le partage de bonnes pratiques juridiques.
+\end{description}
+
+\subsubsection{Garanties cryptographiques et sécurité}
+Afin de renforcer la \textbf{confiance} et la \textbf{transparence} entre les utilisateurs, la plateforme s'appuie sur plusieurs piliers technologiques :
+\begin{itemize}
+  \item \textbf{Blockchain Ethereum} : technologie de registre distribué garantissant l'\textit{intégrité}, la \textit{traçabilité} et l'\textit{immutabilité} des accords signés via le smart contract \texttt{ContractRegistry.sol}.
+  \item \textbf{Hachage cryptographique} : génération d'empreintes numériques uniques pour chaque contrat, permettant une vérification indépendante de l'authenticité des documents.
+  \item \textbf{Architecture microservices sécurisée} : séparation des responsabilités avec isolation des services d'authentification, de logique métier et de stockage.
+  \item \textbf{Mécanismes d'authentification robustes} : gestion contrôlée des accès et des permissions protégeant les utilisateurs contre les risques de fraude, d'usurpation d'identité et de manipulation des données.
+  \item \textbf{Chiffrement des communications} : protection des échanges réseau via HTTPS et sécurisation des cookies de session.
+\end{itemize}
+
+\paragraph{Avantages différenciateurs}
+La solution proposée se distingue des plateformes existantes par :
+\begin{enumerate}
+  \item \textbf{Décentralisation des preuves} : aucune autorité centrale ne peut modifier ou supprimer les preuves d'existence des contrats.
+  \item \textbf{Assistance IA avancée} : réduction significative du temps de rédaction grâce aux capacités génératives.
+  \item \textbf{Expérience utilisateur moderne} : interface intuitive développée avec \texttt{Next.js} et \texttt{Tailwind CSS}.
+  \item \textbf{Scalabilité cloud} : déploiement sur \textbf{Azure Kubernetes Service (AKS)} garantissant haute disponibilité et performance.
+\end{enumerate}
+
+\subsection{Description générale}
+L'application propose une plateforme sécurisée et décentralisée pour la gestion des contrats intelligents et des transactions blockchain. Une fois inscrits et authentifiés, les utilisateurs peuvent accéder à un tableau de bord complet pour créer, déployer, acheter, vendre et suivre leurs smart contracts de manière intuitive.
+
+Les fonctionnalités principales incluent :
+\begin{itemize}
+  \item La création et la personnalisation de contrats intelligents à partir de modèles préconfigurés ou générés automatiquement par l’intelligence artificielle.
+  \item La possibilité de modifier les contrats avant de les signaler ou de les soumettre.
+  \item L’achat et la vente de modèles de contrats via un marketplace intégré à la plateforme.
+  \item La communication en temps réel avec les autres utilisateurs pour échanger sur les contrats et les transactions.
+  \item Un système d’authentification robuste basé sur des tokens JWT et des clés cryptographiques pour assurer la protection des données et la confidentialité des utilisateurs.
+\end{itemize}
+
+\subsection{Organisation du projet}
+Le projet a été structuré selon la méthodologie Scrum afin de faciliter la coordination entre les différentes équipes et d’assurer une intégration fluide des fonctionnalités. Le développement a été organisé en plusieurs sprints, chacun ayant une durée définie et des objectifs précis.
+
+Chaque sprint comportait des tâches clairement définies, permettant :
+\begin{itemize}
+  \item Une gestion efficace des ressources et du temps grâce à des réunions quotidiennes et au suivi des tâches dans le backlog.
+  \item La garantie de la qualité et de la cohérence des fonctionnalités via des revues de sprint et des tests réguliers.
+  \item La livraison progressive d’un produit final robuste, sécurisé et conforme aux bonnes pratiques de la blockchain, tout en s’adaptant rapidement aux changements et aux nouvelles exigences.
+\end{itemize}
+
+\subsubsection{Phase de conception et d'analyse}
+Cette phase a consisté à définir les objectifs du projet, les besoins des utilisateurs et les spécifications techniques. L’équipe a analysé les fonctionnalités essentielles, telles que la création et la personnalisation des contrats intelligents, l’achat et la vente de modèles sur le marketplace, la messagerie en temps réel et l’intégration de l’IA pour générer des contrats.Mais aussi la définition de l’architecture microservices, la sélection des technologies adaptées (Next.js, NestJS, Go, Hardhat, Supabase, MySQL).
+
+\subsubsection{Phase de développement des microservices}
+Le développement de l'application a été structuré selon la méthodologie Scrum, avec des sprints planifiés pour assurer un rythme régulier et une livraison progressive des fonctionnalités. Chaque sprint avait des objectifs clairs et des livrables définis, permettant à l'équipe de suivre l'avancement du projet, de gérer les priorités et de réagir rapidement aux retours ou aux ajustements nécessaires.
+
+\subsection{Architecture microservices}
+Chaque microservice a été développé de manière indépendante afin de séparer les responsabilités et de faciliter la maintenance, les tests et le déploiement.
+
+\subsubsection{Frontend (Next.js)}
+Ce microservice est responsable de la présentation et de l'interaction avec l'utilisateur. Il gère l'affichage des tableaux de bord, le marketplace de contrats, les flux de messagerie en temps réel et les notifications. L'interface a été conçue pour être réactive, intuitive et accessible, permettant aux utilisateurs de naviguer facilement entre les fonctionnalités de création, personnalisation et échange de contrats, ainsi que la messagerie instantanée avec d'autres utilisateurs.
+
+\subsubsection{Gateway (Go)}
+Le Gateway agit comme point d'entrée unique pour toutes les requêtes des clients. Il gère le routage vers les services appropriés, la validation des cookies de session et l'application des politiques CORS. Cette couche centralisée permet de sécuriser et de contrôler le trafic, tout en facilitant l'intégration future de nouvelles fonctionnalités ou microservices.
+
+\subsubsection{Auth Service (Go)}
+Ce microservice est dédié à la gestion de l'authentification et de l'autorisation. Il prend en charge l'authentification hybride via Google OAuth2 et Email/Password, ainsi que la génération et la validation des tokens JWT. Grâce à ce service, les sessions utilisateur sont sécurisées, les données sensibles sont protégées et l'accès aux différentes fonctionnalités de l'application est correctement contrôlé selon les permissions. Il assure également la communication avec la base de données (MySQL).
+
+\subsubsection{Backend Service (NestJS)}
+Ce microservice contient toute la logique métier de l'application. Il gère le chat en temps réel, la gestion des contrats, les transactions sur le marketplace et l'intégration des fonctionnalités d'intelligence artificielle pour générer ou personnaliser des contrats. Il assure également la communication avec la base de données (Supabase) et garantit la cohérence et l'intégrité des données à travers les différents services.
+\newpage
+\subsubsection{Blockchain (Hardhat Local Node)}
+Cette couche fournit un registre décentralisé et immuable pour les contrats intelligents. Le smart contract \texttt{ContractRegistry.sol} est utilisé pour stocker les hashes des contrats finalisés et les signatures numériques des parties, garantissant ainsi la vérifiabilité et la non-altération des documents. L'intégration de la blockchain renforce la confiance et la transparence pour toutes les transactions réalisées sur la plateforme.
+
+\subsection{Déroulement des sprints}
+Chaque sprint incluait plusieurs étapes structurées :
+\begin{itemize}
+  \item \textbf{Planification :} les tâches étaient détaillées et assignées dans le backlog selon les priorités définies.
+  \item \textbf{Développement :} chaque microservice avançait de manière autonome selon ses objectifs spécifiques.
+  \item \textbf{Tests :} des tests unitaires et d'intégration étaient réalisés pour s'assurer que chaque fonctionnalité était correcte et que l'interaction entre microservices fonctionnait comme prévu.
+  \item \textbf{Revues de sprint :} l'équipe présentait les livrables, corrigeait les anomalies identifiées et réajustait les priorités pour les sprints suivants.
+\end{itemize}
+Cette approche itérative a permis de garantir une qualité élevée du code, une livraison progressive des fonctionnalités et une adaptation continue aux besoins des utilisateurs et aux contraintes techniques.
+
+\newpage
+\subsubsection{Phase de tests et de validation}
+Une fois le développement des microservices terminé, une phase de tests rigoureux a été réalisée pour valider le bon fonctionnement de chaque composant du système. Cette étape comprenait plusieurs types de tests complémentaires :
+
+\paragraph{Tests de sécurité}
+Vérification de l'authentification hybride, de la gestion des sessions via JWT, et de la protection des données personnelles des utilisateurs sur les différentes bases de données et services. Ces tests ont permis de s'assurer que les mécanismes de sécurité mis en place répondaient aux exigences de confidentialité et d'intégrité des données.
+
+\paragraph{Tests fonctionnels}
+Validation du bon fonctionnement de toutes les fonctionnalités, telles que la création, la modification et la personnalisation des contrats, l'achat et la vente sur le marketplace, la messagerie en temps réel et l'intégration de l'IA pour la génération de contrats. Ces tests ont couvert l'ensemble des cas d'usage pour garantir que chaque fonctionnalité réponde aux besoins métier.
+
+\paragraph{Tests de performance et de scalabilité}
+Évaluation de la réactivité de l'application, du temps de réponse des microservices et de la capacité du système à gérer un grand nombre de transactions et d'utilisateurs simultanément. Ces tests ont permis d'identifier les goulots d'étranglement potentiels et d'optimiser les ressources du système.
+
+\paragraph{Tests d'intégration}
+Vérification des interactions entre les différents microservices (Frontend, Gateway, Auth Service, Backend Service et Blockchain), afin de s'assurer que les données circulent correctement et que le système fonctionne de manière cohérente et robuste. Ces tests ont validé la communication inter-services et la synchronisation des données.
+
+\subsubsection{Phase de déploiement et mise en production}
+Après la validation des tests, l'application a été déployée sur un environnement de production cloud utilisant l'infrastructure Microsoft Azure. Cette étape a inclus plusieurs composantes essentielles :
+
+\paragraph{Containerisation et orchestration}
+La mise en place de l'infrastructure de production a été réalisée avec Docker pour la containerisation de chaque microservice, garantissant l'isolation et la portabilité des composants. L'orchestration a été assurée par Kubernetes via Azure Kubernetes Service (AKS), offrant une gestion automatisée du déploiement, de la mise à l'échelle et de la haute disponibilité des microservices. Cette architecture permet une répartition optimale de la charge et une résilience accrue du système.
+
+\paragraph{Infrastructure cloud Azure}
+L'utilisation d'Azure Kubernetes Service (AKS) a permis de bénéficier d'un environnement de production robuste et scalable. AKS gère automatiquement les nœuds Kubernetes, facilite les mises à jour sans interruption de service et offre une intégration native avec les services Azure pour le monitoring, la sécurité et la gestion des identités. Cette infrastructure cloud garantit également la persistance des données et la redondance nécessaire pour un service de production fiable.
+
+\paragraph{Configuration réseau et sécurité}
+La configuration des serveurs et des services a inclus la mise en place d'un réseau interne sécurisé entre microservices au sein du cluster Kubernetes, l'implémentation de politiques de sécurité réseau (Network Policies), et la connexion sécurisée à la blockchain locale pour le smart contract \texttt{ContractRegistry.sol}. Les communications inter-services sont chiffrées et protégées par des règles d'accès strictes.
+
+\paragraph{Migration et mise en service}
+
+La migration des données de développement vers les bases de données de production (MySQL et Supabase) a été effectuée avec des procédures de sauvegarde et de rollback pour minimiser les risques. La mise en service progressive du marketplace, de la messagerie en temps réel et des fonctionnalités d'IA pour la création de contrats a été réalisée, permettant aux utilisateurs d'interagir avec l'application dans un environnement stable, performant et sécurisé.
+
+Cette phase finale, renforcée par l'utilisation de technologies cloud modernes et d'orchestration Kubernetes, a permis de garantir la qualité, la sécurité, la scalabilité et la cohérence de l'ensemble du produit, assurant ainsi une mise en production réussie et une expérience utilisateur optimale avec une disponibilité élevée et des performances constantes.
+
+\subsection{Conclusion}
+L'organisation du projet a été soigneusement planifiée afin d'assurer une répartition claire des responsabilités, une gestion optimale du temps et une collaboration efficace entre tous les membres de l'équipe. L'adoption de la méthodologie Scrum a permis un développement itératif et flexible, avec des sprints bien définis, des revues régulières et des ajustements rapides en fonction des retours et des priorités.
+
+Grâce à cette approche agile combinée à une architecture microservices moderne, chaque composant a pu être conçu, développé et testé de manière indépendante, tout en garantissant l'intégration harmonieuse de l'ensemble du système. L'utilisation de technologies cloud avancées, notamment Azure Kubernetes Service (AKS), a permis d'assurer la scalabilité, la haute disponibilité et la résilience de la plateforme en environnement de production.
+
+Le projet a ainsi abouti à la livraison d'un produit final robuste, sécurisé et performant, intégrant des fonctionnalités innovantes et répondant aux exigences métier :
+\begin{itemize}
+  \item \textbf{Création et personnalisation intelligentes :} génération et adaptation de contrats juridiques assistées par l'intelligence artificielle, offrant une expérience utilisateur intuitive et productive.
+  \item \textbf{Collaboration en temps réel :} système de messagerie instantanée facilitant la communication et la négociation entre les parties prenantes.
+  \item \textbf{Vérification blockchain :} enregistrement immuable et transparent des contrats finalisés garantissant l'authenticité, la traçabilité et la non-répudiation des documents juridiques.
+\end{itemize}
+
+Cette organisation rigoureuse et cette méthodologie éprouvée ont non seulement garanti la qualité, la cohérence et la maintenabilité du produit final, mais ont également permis à l'équipe de répondre efficacement aux besoins évolutifs des utilisateurs et de créer une plateforme moderne, innovante, sécurisée et évolutive, prête à s'adapter aux défis futurs du secteur juridique numérique.
+
+\section{Analyse des besoins}
+
+\subsection{Introduction}
+Ce chapitre présente l’analyse des besoins du projet de développement de la plateforme web de gestion et de transaction de contrats intelligents. L’objectif principal est de détailler les besoins fonctionnels et non fonctionnels, en mettant l’accent sur les attentes des utilisateurs ainsi que sur les exigences techniques du système.
+
+Le projet vise à offrir une plateforme moderne, intuitive et sécurisée, permettant aux utilisateurs de créer, personnaliser, acheter, vendre et gérer leurs contrats intelligents, tout en bénéficiant de fonctionnalités avancées telles que la messagerie en temps réel et l’intégration de l’intelligence artificielle pour générer ou compléter des contrats. La solution doit également garantir la sécurité, la transparence et l’immuabilité des données via l’intégration d’une blockchain locale pour la vérification des contrats.
+
+\subsection{Description du projet}
+Le projet consiste à développer une plateforme en ligne dédiée à la création, gestion et transaction de contrats intelligents. Cette plateforme permettra aux utilisateurs de s'inscrire, de créer un compte, puis de concevoir, personnaliser et gérer leurs contrats à l’aide de modèles prédéfinis ou générés automatiquement par l’intelligence artificielle.
+
+Le site offrira une interface utilisateur fluide et réactive, facilitant la navigation dans le tableau de bord, l’accès au marketplace de contrats, la messagerie en temps réel et la prévisualisation des contrats avant validation. L’application assurera également la sécurité et la confidentialité des données grâce à une authentification hybride (Email/Password et Google OAuth2), l’utilisation de tokens JWT et l’enregistrement des contrats finalisés sur une blockchain locale via le smart contract \texttt{ContractRegistry.sol}.
+
+\subsection{Objectifs}
+Les objectifs principaux du projet sont les suivants :
+\begin{itemize}
+  \item \textbf{Expérience utilisateur optimale} : Assurer une navigation fluide et intuitive sur la plateforme, permettant aux utilisateurs d’accéder facilement au tableau de bord, au marketplace de contrats et aux fonctionnalités de messagerie en temps réel.
+  \item \textbf{Création et personnalisation de contrats intelligents} : Permettre aux utilisateurs de concevoir des contrats sur mesure, adaptés à leurs besoins, en utilisant des modèles prédéfinis ou générés automatiquement par l’intelligence artificielle, avec prévisualisation et modification avant validation.
+  \item \textbf{Transactions sécurisées et marketplace} : Faciliter l’achat et la vente de modèles de contrats entre utilisateurs, en garantissant des transactions sécurisées, traçables et enregistrées sur la blockchain pour assurer transparence et immuabilité.
+  \item \textbf{Gestion efficace des comptes utilisateurs} : Assurer une gestion centralisée des profils utilisateurs et de leurs contrats, garantissant la sécurité des données personnelles et la confidentialité des informations.
+  \item \textbf{Communication en temps réel} : Offrir aux utilisateurs la possibilité d’échanger instantanément via la messagerie intégrée, afin de collaborer sur les contrats et de négocier les termes en toute sécurité.
+\end{itemize}
+
+\subsection{Acteurs principaux et leurs fonctionnalités}
+Les acteurs principaux de l’application sont les utilisateurs et les administrateurs, chacun ayant des rôles et responsabilités spécifiques pour garantir le bon fonctionnement et la sécurité de la plateforme.
+
+\paragraph{Utilisateurs}
+Les utilisateurs peuvent disposer de trois types de comptes : standard, créateur (Marketplace) ou professionnel (Pro). Leurs principales fonctionnalités sont :
+\begin{itemize}
+  \item Création d’un compte utilisateur et gestion des informations personnelles.
+  \item Création, personnalisation et prévisualisation de contrats intelligents à partir de modèles proposés ou générés par intelligence artificielle.
+  \item Possibilité de modifier les contrats avant validation ou signature.
+  \item Consultation et gestion des contrats dans leur tableau de bord personnel.
+  \item Achat et vente de modèles de contrats sur le marketplace (pour les comptes créateurs ou Pro).
+  \item Communication en temps réel avec d’autres utilisateurs pour collaborer sur les contrats et négocier les termes.
+  \item Signature sécurisée des contrats et enregistrement sur la blockchain pour garantir l’immuabilité et la vérifiabilité.
+\end{itemize}
+
+\paragraph{Administrateurs}
+Les administrateurs disposent de privilèges étendus pour superviser la plateforme :
+\begin{itemize}
+  \item Gestion des comptes utilisateurs : ajout, modification, suspension ou suppression.
+  \item Supervision de l’activité globale de la plateforme afin d’assurer la sécurité, la conformité et le bon fonctionnement du système.
+  \item Intervention en cas d’incidents ou de comportements non conformes sur le marketplace.
+\end{itemize}
+
+\subsection{Identification des besoins fonctionnels}
+Les besoins fonctionnels définissent les fonctionnalités que la plateforme doit impérativement offrir pour répondre aux attentes des utilisateurs et garantir l’efficacité du système. Pour cette plateforme de gestion, création et transaction de contrats intelligents, ces besoins fonctionnels se divisent en deux grandes catégories : les utilisateurs et les administrateurs.
+
+\subsubsection{Système d'authentification}
+Le système d’authentification assure la sécurité des utilisateurs et de leurs données. Il prend en charge :
+\begin{itemize}
+  \item L’inscription et la connexion via Email/Password et Google OAuth2.
+  \item La gestion des sessions via tokens JWT, garantissant un accès sécurisé aux différentes fonctionnalités.
+  \item La protection des données personnelles et la prévention des accès non autorisés.
+  \item La validation des comptes et la gestion des permissions selon le type de compte (standard, créateur, Pro).
+\end{itemize}
+
+\subsubsection{Messagerie en temps réel}
+La messagerie en temps réel permet aux utilisateurs de communiquer instantanément pour collaborer sur les contrats ou négocier les termes :
+\begin{itemize}
+  \item Transmission instantanée des messages entre utilisateurs via Supabase Realtime.
+  \item Notifications en temps réel pour signaler la réception de nouveaux messages.
+  \item Gestion des conversations et des historiques de discussion au sein du tableau de bord.
+  \item Intégration avec les comptes utilisateurs pour assurer une expérience fluide et sécurisée.
+\end{itemize}
+
+\subsubsection{Gestion des amis}
+Le système de gestion des amis permet de créer un réseau d’utilisateurs :
+\begin{itemize}
+  \item Envoi et réception d’invitations d’amis.
+  \item Acceptation ou refus des invitations avec validation pour éviter les doublons ou les auto-invitations.
+  \item Possibilité de limiter l’accès à certaines fonctionnalités (messagerie, partage de contrats) aux amis.
+  \item Visualisation et organisation de la liste d’amis dans le tableau de bord personnel.
+\end{itemize}
+
+\subsubsection{Gestion des contrats}
+La gestion des contrats englobe toutes les fonctionnalités liées à la création, modification, validation et transaction des contrats :
+\begin{itemize}
+  \item Création et personnalisation de contrats à partir de modèles prédéfinis ou via l’IA.
+  \item Prévisualisation et modification des contrats avant validation.
+  \item Signature numérique et enregistrement sur la blockchain pour garantir l’immuabilité et la vérifiabilité.
+  \item Historique des contrats, suivi des transactions et possibilité d’archivage.
+  \item Intégration avec le marketplace pour l’achat et la vente de modèles de contrats.
+\end{itemize}
+
+\subsubsection{Intégration blockchain}
+L’intégration blockchain assure la sécurité, la transparence et la traçabilité des contrats :
+\begin{itemize}
+  \item Utilisation d’un smart contract \texttt{ContractRegistry.sol} pour enregistrer les hashes des contrats finalisés et les signatures numériques des parties.
+  \item Vérification immuable de l’existence et des termes des contrats.
+  \item Interaction entre le backend et le nœud local Hardhat pour enregistrer et valider les transactions.
+  \item Garantie de la conformité et de la protection des droits des utilisateurs lors des échanges et transactions sur le marketplace.
+\end{itemize}
+
+\subsection{Identification des besoins non fonctionnels}
+Les besoins non fonctionnels pour un site e-commerce décrivent comment la plateforme doit se comporter pour assurer une expérience utilisateur optimale et une opération fluide.
+
+\subsubsection{Sécurité}
+La sécurité est un aspect primordial de la plateforme, en particulier pour la gestion des contrats et des transactions :
+\begin{itemize}
+  \item Protection des données personnelles et sensibles via chiffrement et stockage sécurisé.
+  \item Gestion sécurisée des sessions utilisateurs avec tokens JWT.
+  \item Authentification hybride via Email/Password et Google OAuth2.
+  \item Contrôle des accès selon le type de compte (standard, créateur, Pro) et permissions spécifiques.
+  \item Intégrité des contrats garantie par la blockchain, empêchant toute modification non autorisée.
+\end{itemize}
+
+\subsubsection{Performance}
+La performance de la plateforme garantit une expérience utilisateur fluide et rapide :
+\begin{itemize}
+  \item Temps de réponse réduit pour les interactions avec le tableau de bord et le marketplace.
+  \item Messagerie en temps réel avec transmission instantanée des messages via Supabase Realtime.
+  \item Optimisation des requêtes entre les microservices pour assurer la réactivité.
+\end{itemize}
+
+\subsubsection{Disponibilité}
+La disponibilité de la plateforme assure un accès continu et fiable pour les utilisateurs :
+\begin{itemize}
+  \item Mise en place d’une architecture distribuée avec microservices pour limiter les points de défaillance.
+  \item Gestion des incidents et redondance pour garantir la continuité des services.
+  \item Surveillance des services pour détecter et résoudre rapidement les pannes ou anomalies.
+\end{itemize}
+
+\subsubsection{Scalabilité}
+La plateforme est conçue pour évoluer en fonction du nombre d’utilisateurs et du volume de transactions :
+\begin{itemize}
+  \item Microservices indépendants permettant l’ajout de nouvelles fonctionnalités sans impacter l’ensemble du système.
+  \item Capacité à gérer simultanément de nombreux utilisateurs et transactions sur le marketplace et la messagerie.
+  \item Possibilité d’étendre l’infrastructure pour supporter une croissance future et l’augmentation des volumes de données.
+\end{itemize}
+
+\subsection{Conclusion}
+L’analyse des besoins a permis de définir avec précision les fonctionnalités essentielles et les exigences techniques de la plateforme. La distinction claire entre besoins fonctionnels et non fonctionnels, ainsi que la prise en compte des différents types d’utilisateurs et de leurs interactions, assure la conception d’un système sécurisé, performant et évolutif. Cette approche garantit que la plateforme répondra aux attentes des utilisateurs tout en offrant une expérience fluide, une gestion efficace des contrats et une intégration fiable de la blockchain.
+
+\cleardoublepage
+
+\section{Conception}
+
+\subsection{Introduction}
+Ce chapitre est dédié à la spécification conceptuelle de la plateforme web de gestion, création et transaction de contrats intelligents. Il vise à identifier les acteurs principaux et à définir leurs interactions avec le système, en tenant compte des différents types de comptes utilisateurs (standard, créateur et professionnel) ainsi que du rôle de l’administrateur.
+
+Nous présenterons également les besoins fonctionnels et non fonctionnels de la plateforme, ainsi que les relations entre les entités clés à travers des diagrammes UML (Unified Modeling Language), notamment :
+\begin{itemize}
+  \item \textbf{Diagramme de cas d’utilisation} : illustrant les interactions des utilisateurs et de l’administrateur avec les différentes fonctionnalités du système (création, modification, signature et transaction des contrats, messagerie en temps réel, gestion du marketplace).
+  \item \textbf{Diagramme de classes} : représentant la structure des entités principales, leurs attributs et leurs relations, notamment les utilisateurs, les contrats, les transactions et les messages.
+\end{itemize}
+Cette approche conceptuelle permet de définir clairement la structure et le comportement du système, facilitant ainsi le développement des microservices et l’intégration sécurisée de la blockchain pour la vérification et l’enregistrement des contrats.
+
+\subsection{Architecture du système}
+
+\subsubsection{Architecture microservices}
+La plateforme est conçue selon une architecture microservices, permettant de séparer les différentes responsabilités du système tout en assurant scalabilité, flexibilité et maintenabilité. Chaque service est développé et déployé de manière indépendante, avec son propre port et son conteneur Docker, communiquant avec les autres services via des API REST et des WebSockets pour la messagerie instantanée.
+
+\subsubsection{Diagramme d'architecture}
+Le diagramme d’architecture illustre la structure globale de la plateforme et les interactions entre les différents microservices. Il permet de visualiser la répartition des responsabilités, la communication entre services, ainsi que l’intégration de la blockchain et des WebSockets pour la messagerie en temps réel.
+
+Description de l’architecture :
+\begin{itemize}
+  \item \textbf{Frontend (Next.js)} : communique avec le Gateway via HTTP REST pour les requêtes classiques et via WebSockets pour la messagerie instantanée.
+  \item \textbf{Gateway (Go)} : agit comme un point d’entrée unique, routant les requêtes vers l’Auth Service ou le Backend Service selon le type d’action.
+  \item \textbf{Auth Service (Go)} : responsable de l’authentification, de la gestion des sessions et de la sécurité des accès.
+  \item \textbf{Backend Service (NestJS)} : gère la logique métier principale, notamment la création, modification et gestion des contrats, le marketplace et la messagerie en temps réel.
+  \item \textbf{Blockchain (Hardhat Local Node)} : enregistre et vérifie de manière immuable les contrats signés via le smart contract \texttt{ContractRegistry.sol}.
+\end{itemize}
+
+\newpage
+\clearpage
+\null\vfill
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=1.1\textwidth]{diagramme_arch.png}
+  \caption{Diagramme d'architecture technique de la plateforme}
+\end{figure}
+
+\vfill
+\newpage
+\subsection{Diagramme de classes}
+\section*{Diagramme de classes et architecture interne de l'application}
+Le diagramme de classe décrit la structure interne de l'application, les entités principales ainsi que leurs attributs et relations dans le cadre d'une architecture microservices distribuée.
+
+\subsection*{Principales classes}
+\begin{description}
+  \item[User (Utilisateur - Service Auth \& Métier)]
+    Contient les informations de l'utilisateur (id, email, name, avatarUrl).
+    Stocke les credentials d'authentification (password hashé, googleId, isVerified).
+    Rôle : centralise l'identité utilisateur, géré par le Service Authentification (MySQL) et référencé par le Service Métier (Supabase).
+    Relations : possède des contrats (initiator ou counterparty), un abonnement, des sessions d'authentification, des messages et un suivi d'utilisation quotidien.
+
+  \item[Contract (Contrat - Service Métier)]
+    Associé à un utilisateur initiateur (initiator) et une contrepartie (counterparty).
+    Stocke les informations du contrat (id, title, summary, clauses au format JSON).
+    Gère le statut du contrat (draft, pending\_counterparty, fully\_signed).
+    Enregistre les accords de signature (initiatorAgreed, counterpartyAgreed).
+    Contient le blockchainHash une fois signé et déployé sur Hardhat.
+    Relations : lié à deux utilisateurs et potentiellement à un SmartContract via le hash blockchain.
+
+  \item[SmartContract (ContractRegistry - Blockchain Layer)]
+    Représente l'entité immuable déployée sur la blockchain Hardhat.
+    Contient le hash du contrat (contractHash) et les adresses Ethereum des parties (initiator, counterparty).
+    Enregistre l'état des signatures (initiatorSigned, counterpartySigned).
+    Fonction : validation cryptographique décentralisée de l'intégrité des contrats.
+
+  \item[Subscription (Abonnement - Service Métier)]
+    Associé à un utilisateur unique (userId).
+    Stocke le type de plan (planId : FREE, STANDARD, CREATOR) et le statut de l'abonnement.
+    Contient les dates de période d'abonnement (currentPeriodStart, currentPeriodEnd).
+    Définit les quotas et limites d'utilisation selon le plan.
+    Relations : lié à un User et peut générer plusieurs PaymentTransaction.
+    \newpage
+
+  \item[PaymentTransaction (Transaction de Paiement - Service Métier)]
+    Rattaché à un utilisateur (userId) et potentiellement à un abonnement (subscriptionId).
+    Contient les informations de transaction (id, amount, currency, status).
+    Intègre les identifiants externes (paymentProvider : Stripe, providerTransactionId).
+    Synchronisé avec Stripe via les webhooks.
+    Relations : lié à un User et à un Subscription pour l'historique des paiements.
+
+  \item[UsageTracking (Suivi d'Utilisation - Service Métier)]
+    Associé à un utilisateur (userId) avec suivi journalier.
+    Contient la date et le nombre de contrats créés.
+    Fonction : vérifie et limite le nombre de contrats créés quotidiennement selon le plan.
+    Relations : un User possède plusieurs enregistrements UsageTracking (un par jour).
+
+  \item[Message (Messagerie - Service Métier)]
+    Associé à un expéditeur (senderId) et un destinataire (receiverId).
+    Contient le contenu du message (content), le statut de lecture (readAt) et la date de création (createdAt).
+    Supporte le temps réel via WebSocket Supabase.
+    Relations : lié à deux utilisateurs pour la communication bidirectionnelle.
+
+  \item[Session (Session - Service Auth)]
+    Rattachée à un utilisateur (userId).
+    Stocke le token de session (sessionToken) et la date d'expiration (expiresAt).
+    Note : session stateful stockée dans MySQL.
+    Permet la gestion sécurisée des connexions et la révocation de sessions.
+\end{description}
+
+\subsection*{Relations clés}
+\begin{itemize}
+  \item Un User possède un Subscription actif (0..1).
+  \item Un User a un suivi UsageTracking quotidien (0..N, un par jour).
+  \item Un User peut créer ou recevoir plusieurs Contract en tant qu'initiateur ou contrepartie (1..N).
+  \item Un Contract est lié à un hash unique dans SmartContract sur la blockchain (0..1, après signature complète).
+  \item Un Subscription génère plusieurs PaymentTransaction (0..N).
+  \item Un User peut envoyer et recevoir plusieurs Message (N..M).
+  \item Un User peut avoir plusieurs Session actives simultanément (1..N).
+  \item Les signatures des contrats sont gérées comme des booléens (initiatorAgreed, counterpartyAgreed) et enregistrées sur la blockchain.
+\end{itemize}
+
+\subsection*{Architecture distribuée}
+\begin{itemize}
+  \item Le Service Authentification gère les classes User et Session dans MySQL.
+  \item Le Service Métier gère Contract, Subscription, PaymentTransaction, UsageTracking et Message dans Supabase.
+  \item La Blockchain Layer expose SmartContract (ContractRegistry) sur Hardhat pour les opérations immuables.
+  \item L'API Gateway orchestre la communication entre les microservices via des API REST.
+  \item Stripe est intégré via webhooks pour synchroniser PaymentTransaction et mettre à jour les Subscription.
+\end{itemize}
+
+\newpage
+\clearpage
+\null\vfill
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=1.1\textwidth]{diagramme_classe.png}
+  \caption{Diagramme de classe de la plateforme}
+\end{figure}
+\vfill
+\newpage
+
+\section{Diagramme de cas d'utilisation}
+
+\subsection*{Interprétation du Diagramme de Cas d'Utilisation}
+Le diagramme de cas d'utilisation illustre les interactions entre les acteurs principaux (Utilisateur Client et Administrateur) et la plateforme de gestion de contrats sécurisée par blockchain. Il permet de comprendre les fonctionnalités offertes pour la création, la signature et l'archivage des contrats.
+
+\subsection*{Acteurs Identifiés}
+\begin{itemize}
+  \item \textbf{Utilisateur (Client)}
+    \begin{itemize}
+      \item S'inscrit et s'authentifie (Google OAuth ou Email/Mot de passe).
+      \item Crée de nouveaux contrats (à partir de zéro ou de templates).
+      \item Négocie les clauses et échange des messages en temps réel avec la contrepartie.
+      \item Signe numériquement les contrats (ancrage sur Blockchain Hardhat).
+      \item Gère son abonnement (Stripe) pour augmenter ses quotas de création.
+      \item Consultez l'historique et le statut de ses contrats et paiements.
+    \end{itemize}
+
+  \item \textbf{Administrateur}
+    \begin{itemize}
+      \item Gère les utilisateurs (suspension, vérification).
+      \item Gère les modèles de contrats (templates) mis à disposition sur la plateforme.
+      \item Supervise les logs d'activité et les transactions marketplace.
+    \end{itemize}
+\end{itemize}
+
+\subsection*{Explication du Fonctionnement}
+\begin{itemize}
+  \item Un utilisateur s'inscrit et se connecte via une interface sécurisée (Auth Service).
+  \item Une fois connecté, il peut initier un contrat avec un autre utilisateur. Le système permet la négociation des termes via une messagerie instantanée intégrée.
+  \item Lorsque les deux parties sont d'accord, le contrat est signé : une empreinte numérique (hash) est générée et stockée sur la blockchain pour garantir son immuabilité.
+  \item Pour bénéficier de plus de fonctionnalités (plus de contrats/jour), l'utilisateur peut souscrire à un plan payant géré automatiquement via Stripe.
+  \item L'administrateur dispose d'une vue globale pour gérer le contenu public (templates) et assurer le bon fonctionnement du service.
+
+\end{itemize}
+
+\newpage
+\clearpage
+\null\vfill
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=1.1\textwidth]{diagramme_cas.png}
+  \caption{Diagramme de cas d'utilisation de la plateforme}
+\end{figure}
+
+\vfill
+\newpage
+
+\cleardoublepage
+
+\chapter{Implémentation}
+
+\section{Introduction}
+Dans ce chapitre, nous abordons la mise en œuvre concrète de la plateforme de gestion de contrats intelligents. Nous commencerons par une introduction générale pour présenter l’environnement de développement utilisé, puis nous détaillerons les principales interfaces graphiques développées pour l’application web.
+
+\section{Environnement de développement}
+Cette section décrit les outils matériels et logiciels utilisés pour le développement de notre plateforme.
+
+\subsection*{Environnement Matériel}
+\begin{itemize}
+  \item[\textbullet] \textbf{Marque :} Lenovo LOQ
+  \item[\textbullet] \textbf{Processeur :} 12th Gen Intel(R) Core(TM) i5-12600XH
+  \item[\textbullet] \textbf{Mémoire vive (RAM) :} 32.0 Go
+  \item[\textbullet] \textbf{Type de système :} Système d'exploitation 64 bits, processeur x64
+\end{itemize}
+\newpage
+
+\subsection*{Environnement Logiciel}
+\subsubsection*{Outils de développement}
+\begin{description}
+  \item[Visual Studio Code Insiders]
+    \begin{figure}[H]
+      \centering
+      \includegraphics[height=3cm]{vscode.png}
+      \caption{VS Code Insiders}
+    \end{figure}
+
+  \item[Neovim]
+    \begin{figure}[H]
+      \centering
+      \includegraphics[height=3cm]{neovim.png}
+      \caption{NeoVim}
+    \end{figure}
+
+  \item[Kitty Terminal]
+    \begin{figure}[H]
+      \centering
+      \includegraphics[height=3cm]{kitty.png}
+      \caption{Kitty Terminal}
+    \end{figure}
+
+  \item[Docker Desktop]
+    \begin{figure}[H]
+      \centering
+      \includegraphics[height=3cm]{docker.png}
+      \caption{Docker Desktop}
+    \end{figure}
+
+  \item[Mermaid]
+    Mermaid est un outil de génération de diagrammes et de graphiques basé sur du texte et JavaScript. Il permet de créer dynamiquement des diagrammes UML, des flowcharts, des diagrammes de séquence, des diagrammes de Gantt et bien d'autres à partir d'une syntaxe Markdown simple.
+    \begin{figure}[H]
+      \centering
+      \includegraphics[height=3cm]{mermaid.png}
+      \caption{Mermaid Chart}
+    \end{figure}
+\end{description}
+
+\subsection{Technologies Frontend}
+\begin{description}
+  \item[Next.js]
+    Next.js est un framework React open-source développé par Vercel qui permet de créer des applications web modernes avec rendu côté serveur (SSR), génération de sites statiques (SSG) et routing automatique.
+    \begin{figure}[H]
+      \centering
+      \includegraphics[height=3cm]{nextjs.png}
+      \caption{Next.js}
+    \end{figure}
+
+  \item[Tailwind CSS]
+    Tailwind CSS est un framework CSS utility-first qui permet de construire des interfaces utilisateur personnalisées rapidement.
+    \begin{figure}[H]
+      \centering
+      \includegraphics[height=3cm]{tailwind.png}
+      \caption{Tailwind CSS}
+    \end{figure}
+\end{description}
+\newpage
+\subsection{Technologies Backend}
+\begin{description}
+  \item[NestJS]
+    NestJS est un framework progressif Node.js pour la construction d'applications côté serveur efficaces et évolutives.
+    \begin{figure}[H]
+      \centering
+      \includegraphics[height=3cm]{nest.png}
+      \caption{NestJS}
+    \end{figure}
+
+  \item[Go (Golang)]
+    Go est un langage de programmation open-source développé par Google, conçu pour la simplicité, l'efficacité et la fiabilité.
+    \begin{figure}[H]
+      \centering
+      \includegraphics[height=3cm]{golang.png}
+      \caption{Go (Golang)}
+    \end{figure}
+\end{description}
+
+\subsection{Technologies Blockchain}
+\begin{description}
+  \item[Solidity]
+    Solidity est un langage de programmation orienté objet de haut niveau conçu spécifiquement pour le développement de smart contracts sur la blockchain Ethereum.
+    \begin{figure}[H]
+      \centering
+      \includegraphics[height=3cm]{solidity.png}
+      \caption{Solidity}
+    \end{figure}
+    \newpage
+  \item[MetaMask]
+    MetaMask est un portefeuille de cryptomonnaies et une extension de navigateur qui permet aux utilisateurs d'interagir avec la blockchain Ethereum.
+    \begin{figure}[H]
+      \centering
+      \includegraphics[height=3cm]{metamask.png}
+      \caption{MetaMask}
+    \end{figure}
+\end{description}
+
+\subsection{Outils de Développement et DevOps}
+\begin{description}
+  \item[Git]
+    Git est un système de contrôle de version distribué open-source créé par Linus Torvalds.
+    \begin{figure}[H]
+      \centering
+      \includegraphics[height=3cm]{git.png}
+      \caption{Git}
+    \end{figure}
+
+  \item[Git Bash]
+    Git Bash est une application qui fournit une couche d'émulation Bash pour l'environnement Windows.
+    \begin{figure}[H]
+      \centering
+      \includegraphics[height=3cm]{gitbash.png}
+      \caption{Git Bash}
+    \end{figure}
+
+  \item[GitHub]
+    GitHub est une plateforme d'hébergement et de collaboration pour le développement logiciel utilisant Git.
+    \begin{figure}[H]
+      \centering
+      \includegraphics[height=3cm]{github.png}
+      \caption{GitHub}
+    \end{figure}
+
+  \item[Docker Desktop]
+    Docker Desktop est une application qui permet de créer, déployer et exécuter des applications dans des conteneurs.
+    \begin{figure}[H]
+      \centering
+      \includegraphics[height=3cm]{docker.png}
+      \caption{Docker Desktop}
+    \end{figure}
+
+  \item[Kubernetes]
+    Kubernetes est une plateforme open-source d’orchestration de conteneurs.
+    \begin{figure}[H]
+      \centering
+      \includegraphics[height=3cm]{kubernetes.png}
+      \caption{Kubernetes}
+    \end{figure}
+
+  \item[MySQL]
+    MySQL est un système de gestion de base de données relationnelle (SGBDR) open-source largement utilisé.
+    \begin{figure}[H]
+      \centering
+      \includegraphics[height=3cm]{mysql.png}
+      \caption{MySQL}
+    \end{figure}
+
+  \item[Supabase]
+    Supabase est une alternative open-source à Firebase, offrant une plateforme Backend-as-a-Service complète.
+    \begin{figure}[H]
+      \centering
+      \includegraphics[height=3cm]{supabase.png}
+      \caption{Supabase}
+    \end{figure}
+\end{description}
+
+\section{Développement des Microservices}
+
+\subsection{Service Gateway (Go)}
+Le service Gateway, développé en langage Go, agit comme le point d'entrée unique de l'architecture (Port 8000). Il a pour responsabilité de router les requêtes HTTP vers les services appropriés (Authentification ou Backend NestJS) selon les motifs d'URL définis. Il centralise également la gestion des politiques CORS et la manipulation des cookies de session sécurisés (HTTP-only, SameSite), assurant ainsi une isolation efficace et une sécurité accrue entre le client frontend et les services internes.
+
+\subsection{Service d'Authentification (Go)}
+Ce microservice, également réalisé en Go (Port 3060), est dédié exclusivement à la sécurité et à la gestion des identités. Il communique avec une base de données MySQL pour stocker les informations utilisateurs et les sessions actives. Il implémente les flux d'authentification modernes tels que OAuth2 (Google) ainsi que l'authentification classique par email/mot de passe. Il génère les tokens de session sécurisés et expose des endpoints permettant aux autres services de valider l'identité de l'utilisateur à chaque requête.
+
+\subsection{Service Backend (NestJS)}
+Le service Backend, construit avec le framework NestJS sur l'environnement Node.js (Port 5000), concentre toute la logique métier de l'application. Il interagit avec une base de données Supabase (PostgreSQL) pour la persistance des données complexes telles que les contrats, les messages de chat et les relations d'amitié. Grâce à son architecture modulaire, il gère efficacement les fonctionnalités temps réel via WebSockets et applique les règles de gestion métier (validation des invitations, création de contrats).
+
+\subsection{Smart Contract (Solidity)}
+La couche blockchain repose sur un nœud local Hardhat et utilise le langage Solidity pour la mise en œuvre des contrats intelligents. Le composant central, \texttt{ContractRegistry}, permet d'ancrer de manière pérenne les empreintes numériques (hash) des contrats signés sur la blockchain. Cette approche garantit l'intégrité, la transparence et l'immuabilité des accords passés entre les utilisateurs, offrant une preuve d'existence vérifiable mathématiquement sans dépendre d'un tiers de confiance centralisé.
+
+\section{Principales Interfaces Graphiques}
+
+\subsection{Interfaces d'Authentification}
+
+\subsubsection{Page d'Inscription}
+La page d'inscription permet aux nouveaux utilisateurs de créer un compte sur la plateforme. Elle offre plusieurs options d'authentification pour faciliter l'accès :
+\begin{itemize}
+  \item \textbf{Inscription par email :} Formulaire classique demandant le nom, prénom, adresse email et mot de passe avec validation en temps réel des champs.
+  \item \textbf{Inscription via OAuth2 :} Authentification rapide via Google permettant de se connecter avec un compte existant.
+  \item \textbf{Validation des données :} Vérification côté client et serveur de la validité des informations (format email, force du mot de passe).
+  \item \textbf{Redirection :} Lien vers la page de connexion pour les utilisateurs possédant déjà un compte.
+\end{itemize}
+L'interface présente un design moderne et épuré avec des animations subtiles, garantissant une expérience utilisateur fluide et professionnelle.
+
+\newpage
+\clearpage
+\null\vfill
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=1.1\textwidth]{sign-up.png}
+  \caption{Page d'inscription}
+\end{figure}
+\vfill
+\newpage
+
+\subsubsection{Page de Connexion}
+La page de connexion permet aux utilisateurs existants d'accéder à leur compte de manière sécurisée. Elle propose :
+\begin{itemize}
+  \item \textbf{Connexion par email et mot de passe :} Formulaire simple et sécurisé avec gestion des erreurs explicites.
+  \item \textbf{Connexion OAuth2 :} Option de connexion rapide via Google.
+  \item \textbf{Gestion de session :} Création automatique d'un cookie de session sécurisé (HTTP-only, SameSite) après authentification réussie.
+  \item \textbf{Récupération de mot de passe :} Lien vers la fonctionnalité de réinitialisation en cas d'oubli.
+  \item \textbf{Redirection :} Lien vers la page d'inscription pour les nouveaux utilisateurs.
+\end{itemize}
+L'interface assure une navigation intuitive et un feedback immédiat en cas d'erreur de saisie.
+
+\newpage
+\clearpage
+\null\vfill
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=1.1\textwidth]{log-in.png}
+  \caption{Page de connexion}
+\end{figure}
+\vfill
+\newpage
+
+\subsubsection{Authentification OAuth Google}
+L'authentification OAuth2 via Google offre une méthode d'inscription et de connexion simplifiée et sécurisée, permettant aux utilisateurs d'accéder à la plateforme sans créer de nouveaux identifiants. Cette fonctionnalité implémente le protocole OAuth 2.0 standard et suit les meilleures pratiques de sécurité.
+
+\textbf{Fonctionnement du flux OAuth2 :}
+\begin{enumerate}
+  \item \textbf{Initiation :} L'utilisateur clique sur le bouton "Continuer avec Google" sur la page d'inscription ou de connexion.
+  \item \textbf{Redirection :} L'application redirige l'utilisateur vers la page d'authentification Google avec les paramètres OAuth2.
+  \item \textbf{Autorisation :} L'utilisateur s'authentifie sur Google et autorise l'application à accéder à ses informations de profil (nom, email, photo).
+  \item \textbf{Callback :} Google redirige l'utilisateur vers l'URL de callback de l'application avec un code d'autorisation temporaire.
+  \item \textbf{Échange de token :} Le service d'authentification Go échange le code d'autorisation contre un token d'accès auprès des serveurs Google.
+  \item \textbf{Récupération du profil :} Le service utilise le token d'accès pour récupérer les informations du profil utilisateur.
+  \item \textbf{Création/Mise à jour :} Si l'utilisateur n'existe pas, un nouveau compte est créé dans la base MySQL ; sinon, les informations sont mises à jour.
+  \item \textbf{Session :} Un cookie de session sécurisé est créé et l'utilisateur est redirigé vers le tableau de bord.
+\end{enumerate}
+
+\textbf{Avantages de l'OAuth2 Google :}
+\begin{itemize}
+  \item \textbf{Sécurité renforcée :} Pas de gestion de mots de passe côté application, réduisant les risques de fuite de données.
+  \item \textbf{Expérience utilisateur améliorée :} Inscription et connexion en quelques clics sans formulaire long.
+  \item \textbf{Confiance :} Les utilisateurs font confiance à l'authentification Google.
+  \item \textbf{Mise à jour automatique :} Les informations du profil restent synchronisées avec le compte Google.
+\end{itemize}
+
+\newpage
+\clearpage
+\null\vfill
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=1.1\textwidth]{googleAuth.png}
+  \caption{Flux d'authentification OAuth2 Google}
+\end{figure}
+\vfill
+\newpage
+
+\subsection{Interfaces principales}
+Cette section présente les interfaces principales de l'application, conçues pour garantir une navigation intuitive, une accessibilité optimale et une expérience utilisateur fluide.
+
+\subsubsection{Page d'accueil}
+La page d'accueil constitue le point d'entrée principal de l'application. Elle permet à l'utilisateur d'avoir une vue globale sur les fonctionnalités offertes et d'accéder facilement aux différentes sections de la plateforme.
+
+\newpage
+\clearpage
+\null\vfill
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=1.1\textwidth]{homePage.png}
+  \caption{Interface de la page d'accueil}
+\end{figure}
+\vfill
+\newpage
+
+\subsubsection{Interface de messagerie en temps réel}
+L'interface de messagerie en temps réel permet aux utilisateurs d'échanger des messages instantanés de manière sécurisée. Elle repose sur l'utilisation de WebSockets afin d'assurer une communication bidirectionnelle fluide et sans rechargement de page.
+
+\newpage
+\clearpage
+\null\vfill
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=1.1\textwidth]{message.png}
+  \caption{Interface de messagerie en temps réel}
+\end{figure}
+\vfill
+\newpage
+
+\subsubsection{Page de gestion des amis}
+La page de gestion des amis permet à l'utilisateur d'ajouter, de supprimer et de gérer sa liste de contacts. Elle facilite les interactions sociales au sein de la plateforme et contribue à renforcer l'aspect collaboratif de l'application.
+
+\newpage
+\clearpage
+\null\vfill
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=1.1\textwidth]{friends.png}
+  \caption{Page de gestion des amis}
+\end{figure}
+
+\vfill
+\newpage
+
+\subsubsection{Page de création de contrat assistée par IA}
+Cette interface permet à l'utilisateur de générer automatiquement un contrat à l'aide de l'intelligence artificielle. En fonction des informations fournies, le système propose un contenu contractuel structuré, cohérent et personnalisable, réduisant ainsi le temps de rédaction et les risques d'erreurs.
+
+\newpage
+\clearpage
+\null\vfill
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=1.1\textwidth]{askai.png}
+  \caption{Page de création de contrat assistée par intelligence artificielle}
+\end{figure}
+\vfill
+\newpage
+
+\subsubsection{Page de signature de contrat}
+La page de signature de contrat permet aux parties concernées de valider le contrat de manière sécurisée via un portefeuille blockchain. Cette étape garantit l'authenticité, l'intégrité et la traçabilité des engagements contractuels.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=1.1\textwidth]{contract.png}
+  \caption{Page de signature de contrat}
+\end{figure}
+
+\section{Intégration blockchain}
+L'architecture de notre application repose sur une intégration hybride, combinant une base de données relationnelle classique (Supabase) pour la gestion des métadonnées et un registre distribué sur blockchain Ethereum pour garantir l'intégrité et l'immuabilité des contrats signés.
+
+\subsection{Déploiement du smart contract}
+Le cœur de la sécurité réside dans le smart contract \texttt{ContractRegistry.sol}. Ce contrat agit comme un notaire numérique décentralisé. Lors du déploiement, il est initialisé sur le réseau blockchain (actuellement un réseau local Hardhat pour le développement). Le contrat définit une structure de données \texttt{ContractData} qui stocke :
+\begin{itemize}
+  \item \texttt{contractHash} : L'empreinte numérique (hash) du document contractuel, garantissant qu'il n'a pas été modifié.
+  \item \texttt{initiator} et \texttt{counterparty} : Les adresses Ethereum des deux parties impliquées.
+  \item \texttt{initiatorSigned} et \texttt{counterpartySigned} : Des booléens indiquant l'état des signatures.
+\end{itemize}
+L'utilisation d'événements Solidity (\texttt{ContractRegistered}, \texttt{ContractSigned}) permet de notifier les applications externes de tout changement d'état sur la blockchain.
+
+\subsection{Interaction avec le ContractRegistry}
+L'interaction entre notre interface utilisateur (React) et la blockchain est gérée via la bibliothèque \texttt{ethers.js} dans le module \texttt{web3.ts}. Lorsqu'un utilisateur crée un contrat, la fonction \texttt{registerContract} est appelée. Cette transaction effectue plusieurs validations critiques *on-chain* :
+\begin{itemize}
+  \item Vérifie que l'identifiant du contrat est unique via un \texttt{mapping} pour éviter les doublons.
+  \item Assure que la contrepartie est une entité distincte de l'initiateur.
+\end{itemize}
+Une fois la transaction minée, l'hash du contrat est définitivement ancré dans la blockchain, créant une preuve d'existence irréfutable à un instant T (\texttt{createdAt}).
+
+\subsection{Workflow de signature numérique}
+Le processus de signature numérique suit un workflow rigoureux :
+\begin{enumerate}
+  \item \textbf{Initialisation :} L'utilisateur connecte son portefeuille (ex: MetaMask) via \texttt{connectWallet}, permettant à l'application d'agir en son nom.
+  \item \textbf{Signature :} Lorsqu'une partie appuie sur "Signer", la fonction \texttt{signContract} est exécutée. Le smart contract vérifie cryptographiquement que l'appelant (\texttt{msg.sender}) est bien l'une des parties autorisées (initiateur ou contrepartie).
+  \item \textbf{Validation :} Si l'appelant est légitime et n'a pas encore signé, le statut est mis à jour (\texttt{true}).
+  \item \textbf{Synchronisation :} Après confirmation de la transaction blockchain, le hash de la transaction (\texttt{txHash}) est renvoyé au backend NestJS via \texttt{contracts.service.ts}, qui met à jour le statut dans la base de données Supabase pour maintenir la cohérence entre les états *off-chain* et *on-chain*.
+\end{enumerate}
+
+\section{Tests et validation}
+
+\subsection{Tests unitaires}
+Des tests unitaires ont été mis en place pour vérifier le bon fonctionnement de chaque module indépendamment. Côté backend (NestJS et Go), nous avons utilisé des frameworks de test pour valider la logique métier, notamment :
+\begin{itemize}
+  \item La création et la validation des objets contrats.
+  \item Les fonctions de hachage et de vérification cryptographique.
+  \item La gestion des états des transactions.
+\end{itemize}
+
+\subsection{Tests d'intégration}
+Les tests d'intégration ont permis de valider la communication entre les différents microservices (Gateway, Auth, Backend) et la base de données. Ils assurent que :
+\begin{itemize}
+  \item Les requêtes traversent correctement la Gateway vers les services appropriés.
+  \item L'authentification et les sessions sont correctement gérées entre les services.
+  \item Les données sont persistées de manière cohérente dans MySQL et Supabase.
+\end{itemize}
+
+\subsection{Tests de sécurité}
+La sécurité a été une priorité tout au long du développement. Nous avons réalisé des tests pour vérifier :
+\begin{itemize}
+  \item La robustesse de l'authentification OAuth2 et JWT.
+  \item La protection contre les injections SQL et les failles XSS.
+  \item La sécurité des smart contracts (audit du code Solidity pour éviter les vulnérabilités classiques comme la réentrance).
+  \item L'isolation des conteneurs Docker et les politiques d'accès réseau.
+\end{itemize}
+
+\section{Déploiement avec Docker}
+
+\subsection{Configuration Docker Compose}
+L'orchestration locale des services est gérée via Docker Compose. Le fichier \texttt{docker-compose.yml} définit l'ensemble des services nécessaires au fonctionnement de la plateforme :
+\begin{itemize}
+  \item \textbf{Frontend} : Image construite à partir du Dockerfile Next.js.
+  \item \textbf{Backend services} : Services Go (Gateway, Auth) et NestJS.
+  \item \textbf{Bases de données} : Conteneurs MySQL et Supabase (ou PostgreSQL local).
+  \item \textbf{Blockchain} : Nœud Hardhat local pour le développement.
+\end{itemize}
+Cette configuration permet de lancer l'intégralité de la stack technique avec une seule commande, garantissant un environnement de développement iso-prod.
+
+\subsection{Orchestration des services}
+Chaque service est exécuté dans son propre conteneur isolé, communiquant via un réseau Docker interne privé. Seule la Gateway expose ses ports vers l'hôte, agissant comme unique point d'entrée. Cette architecture facilite la mise à l'échelle horizontale : il est possible d'instancier plusieurs répliques d'un même service (ex: Backend) pour gérer une charge plus importante.
+
+\subsection{Gestion des volumes et réseaux}
+\begin{itemize}
+  \item \textbf{Volumes} : Des volumes Docker persistants sont configurés pour les bases de données afin de ne pas perdre les données lors du redémarrage des conteneurs.
+  \item \textbf{Réseaux} : Un réseau bridge personnalisé ("app-network") relie tous les conteneurs, permettant la résolution DNS par nom de service (ex: \texttt{http://auth-service:3060}).
+\end{itemize}
+
+\section{Conclusion}
+L'implémentation de cette plateforme a permis de valider la faisabilité technique d'une solution hybride Web2/Web3 pour la gestion de contrats. L'utilisation de microservices offre une grande flexibilité et la blockchain garantit l'intégrité des données critiques. Ce chapitre a détaillé les choix techniques, l'environnement de développement et les étapes de réalisation qui ont conduit à une version fonctionnelle et sécurisée de l'application.
+
+\cleardoublepage
+
+\chapter*{Conclusion générale}
+\addcontentsline{toc}{chapter}{Conclusion générale}
+
+Ce projet de fin d'études nous a permis de concevoir et réaliser une plateforme innovante de gestion de contrats intelligents, répondant à un besoin réel de sécurité et de simplification dans les échanges numériques.
+
+En combinant une architecture microservices robuste avec la technologie Blockchain, nous avons réussi à créer un système qui allie la souplesse des applications web modernes à la rigueur de la preuve cryptographique. L'intégration de fonctionnalités avancées comme l'assistance par IA et la messagerie en temps réel enrichit considérablement l'expérience utilisateur.
+
+Ce travail a été l'occasion de monter en compétence sur des technologies de pointe (Next.js, Go, NestJS, Kubernetes, Solidity) et de mettre en pratique les méthodologies de développement agile et DevOps.
+
+Les perspectives d'évolution sont nombreuses : déploiement sur un réseau Ethereum public (Testnet/Mainnet), intégration de signatures juridiques certifiées eIDAS, ou encore développement d'une application mobile compagnon.
+
+\cleardoublepage
+
+\chapter*{Bibliographie et références}
+\addcontentsline{toc}{chapter}{Bibliographie et références}
+
+\begin{enumerate}
+  \item Documentation officielle Next.js. \url{https://nextjs.org/docs}
+  \item Documentation officielle NestJS. \url{https://docs.nestjs.com/}
+  \item "The Go Programming Language", Alan A. A. Donovan & Brian W. Kernighan.
+  \item Documentation Solidity. \url{https://docs.soliditylang.org/}
+  \item Docker & Kubernetes Documentation. \url{https://docs.docker.com/}
+  \item "Mastering Blockchain", Imran Bashir, 3rd Edition.
+\end{enumerate}
+
+\end{document}

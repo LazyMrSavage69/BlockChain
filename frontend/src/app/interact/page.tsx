@@ -38,7 +38,7 @@ export default function InteractPage() {
   const [successMessage, setSuccessMessage] = useState("");
   const [allInvitations, setAllInvitations] = useState<any[]>([]);
 
-  const GATEWAY_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  const GATEWAY_URL = process.env.NEXT_PUBLIC_API_URL || "http://4.251.143.80.nip.io";
 
   useEffect(() => {
     fetchUser();
@@ -163,7 +163,7 @@ export default function InteractPage() {
         if (response.ok) {
           const data = await response.json();
           const users = (data.users || []).filter((u: User) => u.id !== user.id);
-          
+
           // Fetch avatars for each user
           const usersWithAvatars = await Promise.all(
             users.map(async (u: User) => {
@@ -184,7 +184,7 @@ export default function InteractPage() {
               return { user: u };
             })
           );
-          
+
           setSearchResults(usersWithAvatars);
         }
       } else {
@@ -270,7 +270,7 @@ export default function InteractPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           receiver_id: receiverId,
           userId: user.id // Pass user ID from frontend
         }),
@@ -307,15 +307,15 @@ export default function InteractPage() {
 
   const handleAcceptInvitation = async (invitationId: string) => {
     if (!user) return;
-    
+
     try {
       const response = await fetch(`${GATEWAY_URL}/friends/invitations/${invitationId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           status: "accepted",
-          userId: user.id 
+          userId: user.id
         }),
       });
 
@@ -343,15 +343,15 @@ export default function InteractPage() {
 
   const handleRejectInvitation = async (invitationId: string) => {
     if (!user) return;
-    
+
     try {
       const response = await fetch(`${GATEWAY_URL}/friends/invitations/${invitationId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           status: "rejected",
-          userId: user.id 
+          userId: user.id
         }),
       });
 

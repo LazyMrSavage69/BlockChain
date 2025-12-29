@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -46,11 +47,19 @@ Crée une session locale (token).
 Redirige vers le gateway :
 http://localhost:8000/auth/callback?token=xxxxx
 */
+
+func (s *Server) getEnv(key, fallback string) string {
+	if value, ok := os.LookupEnv(key); ok {
+		return value
+	}
+	return fallback
+}
+
 func (s *Server) RegisterRoutes() http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"http://localhost:8000"}, // autoriser le gateway
+		AllowedOrigins:   []string{os.Getenv("GATEWAY_URL"), "http://localhost:8000"}, // autoriser le gateway
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "Cookie"},
 		AllowCredentials: true,
@@ -76,7 +85,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 		} else {
 			// url de gateway
 			r.URL.Scheme = "http"
-			r.URL.Host = "localhost:8000"
+			r.URL.Host = s.getEnv("GATEWAY_HOST", "localhost:8000")
 		}
 
 		log.Printf("🔐 Starting OAuth for provider: %s", provider)
@@ -167,7 +176,7 @@ func (s *Server) getAuthCallBackFunction(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	gatewayURL := fmt.Sprintf("http://localhost:8000/auth/callback?token=%s", sessionToken)
+	gatewayURL := fmt.Sprintf("%s/auth/callback?token=%s", s.getEnv("GATEWAY_URL", "http://localhost:8000"), sessionToken)
 	http.Redirect(w, r, gatewayURL, http.StatusFound)
 }
 

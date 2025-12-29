@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"log"
+	"os"
 	"testing"
 	"time"
 
@@ -11,7 +12,7 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
-func mustStartMySQLContainer() (func(context.Context, ...testcontainers.TerminateOption) error, error) {
+func mustStartMySQLContainer() (func(context.Context) error, error) {
 	var (
 		dbName = "database"
 		dbPwd  = "password"
@@ -29,9 +30,9 @@ func mustStartMySQLContainer() (func(context.Context, ...testcontainers.Terminat
 		return nil, err
 	}
 
-	dbname = dbName
-	password = dbPwd
-	username = dbUser
+	os.Setenv("BLUEPRINT_DB_DATABASE", dbName)
+	os.Setenv("BLUEPRINT_DB_PASSWORD", dbPwd)
+	os.Setenv("BLUEPRINT_DB_USERNAME", dbUser)
 
 	dbHost, err := dbContainer.Host(context.Background())
 	if err != nil {
@@ -43,10 +44,12 @@ func mustStartMySQLContainer() (func(context.Context, ...testcontainers.Terminat
 		return dbContainer.Terminate, err
 	}
 
-	host = dbHost
-	port = dbPort.Port()
+	os.Setenv("BLUEPRINT_DB_HOST", dbHost)
+	os.Setenv("BLUEPRINT_DB_PORT", dbPort.Port())
 
-	return dbContainer.Terminate, err
+	return func(ctx context.Context) error {
+		return dbContainer.Terminate(ctx)
+	}, err
 }
 
 func TestMain(m *testing.M) {

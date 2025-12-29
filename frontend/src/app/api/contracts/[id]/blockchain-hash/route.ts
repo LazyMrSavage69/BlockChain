@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const GATEWAY_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const GATEWAY_URL = process.env.NEXT_PUBLIC_API_URL || "http://gateway-service:8000";
 
 export async function POST(
   request: NextRequest,

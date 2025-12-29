@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hardhat-node
+  namespace: blockchain-app
+spec:
+  replicas: 1  # Single replica for blockchain node
+  selector:
+    matchLabels:
+      app: hardhat-node
+  template:
+    metadata:
+      labels:
+        app: hardhat-node
+    spec:
+      containers:
+      - name: hardhat-node
+        image: node:20-alpine
+        workingDir: /app
+        command: 
+          - sh
+          - -c
+          - "npm install && npx hardhat node --hostname 0.0.0.0"
+        ports:
+        - containerPort: 8545
+          name: rpc
+        volumeMounts:
+        - name: blockchain-code
+          mountPath: /app
+        - name: hardhat-storage
+          mountPath: /app/artifacts
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        livenessProbe:
+          tcpSocket:
+            port: 8545
+          initialDelaySeconds: 60
+          periodSeconds: 10
+        readinessProbe:
+          tcpSocket:
+            port: 8545
+          initialDelaySeconds: 30
+          periodSeconds: 5
+      volumes:
+      - name: blockchain-code
+        configMap:
+          name: hardhat-config
+      - name: hardhat-storage
+        persistentVolumeClaim:
+          claimName: hardhat-pvc

@@ -40,7 +40,7 @@ interface Contract {
   updated_at: string;
 }
 
-const GATEWAY_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const GATEWAY_URL = process.env.NEXT_PUBLIC_API_URL || "http://4.251.143.80.nip.io";
 
 // Simple Rich Text Editor Component
 function RichTextEditor({

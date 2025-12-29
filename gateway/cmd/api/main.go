@@ -31,7 +31,7 @@ func getEnv(key, fallback string) string {
 // CORS middleware for the official frontend
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		frontendURL := getEnv("FRONTEND_URL", "http://localhost:3000")
+		frontendURL := getEnv("FRONTEND_URL", "http://4.251.143.80.nip.io")
 		w.Header().Set("Access-Control-Allow-Origin", frontendURL)
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, Cookie, Stripe-Signature")
@@ -155,9 +155,9 @@ func createBackendProxyHandler(backendServiceURL string) http.HandlerFunc {
 
 func main() {
 	// Service URLs
-	authServiceURL := getEnv("AUTH_SERVICE_URL", "http://localhost:3060")
-	backendServiceURL := getEnv("BACKEND_SERVICE_URL", "http://localhost:5000")
-	frontendURL := getEnv("FRONTEND_URL", "http://localhost:3000")
+	authServiceURL := getEnv("AUTH_SERVICE_URL", "http://auth-service:3060")
+	backendServiceURL := getEnv("BACKEND_SERVICE_URL", "http://backend-nest:5000")
+	frontendURL := getEnv("FRONTEND_URL", "http://frontend:3000")
 	port := getEnv("PORT", "8000")
 
 	log.Printf("🚀 Starting Gateway on port %s", port)
