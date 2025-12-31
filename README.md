@@ -557,7 +557,7 @@ docker-compose logs -f auth-service
 
 ## 📄 License
 
-This project is licensed under the UNLICENSED - see individual service licenses for details.
+This project is licensed under the MIT - see individual service licenses for details.
 
 ## 👥 Authors
 
