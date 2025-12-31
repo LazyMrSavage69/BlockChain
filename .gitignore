@@ -258,3 +258,32 @@ $RECYCLE.BIN/
 *.lnk
 
 # End of https://www.toptal.com/developers/gitignore/api/node,go,visualstudiocode,linux,macos,windows
+
+# Custom security additions
+# Environment files
+.env.docker
+*.env.local
+*.env.production
+*.env.staging
+
+# Kubernetes secrets (IMPORTANT!)
+k8s/*-secret.yaml
+k8s/secrets/
+**/secrets.yaml
+**/secret.yaml
+
+# Private keys and certificates
+*.key
+*.pem
+*.crt
+*.p12
+*.pfx
+
+# Database dumps with potential sensitive data
+*.dump
+*.sql.gz
+
+# Terraform state files (if used for infrastructure)
+*.tfstate
+*.tfstate.*
+.terraform/
