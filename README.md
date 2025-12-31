@@ -575,4 +575,3 @@ This project is licensed under the UNLICENSED - see individual service licenses 
 
 ---
 
-**Note**: This README covers the local development setup. For Kubernetes and Azure deployment instructions, please refer to the deployment documentation (to be added).
