@@ -2,7 +2,7 @@
   "_format": "hh-sol-cache-2",
   "files": {
     "C:\\Users\\MrSavage\\Desktop\\MiniprojetV0\\blockchain\\contracts\\ContractRegistry.sol": {
-      "lastModificationDate": 1766424869984,
+      "lastModificationDate": 1766427199266,
       "contentHash": "054a44e3e91763edaa64055f441457bb",
       "sourceName": "contracts/ContractRegistry.sol",
       "solcConfig": {
@@ -26,6 +26,9 @@
                 "ast"
               ]
             }
+          },
+          "metadata": {
+            "useLiteralContent": false
           }
         }
       },

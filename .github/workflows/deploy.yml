@@ -1,0 +1,70 @@
+name: Deploy to AKS
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      
+      - name: Get AKS credentials
+        run: |
+          az aks get-credentials \
+            --resource-group ${{ secrets.RESOURCE_GROUP }} \
+            --name ${{ secrets.CLUSTER_NAME }} \
+            --overwrite-existing
+      
+      - name: Login to Azure Container Registry
+        run: |
+          az acr login --name ${{ secrets.ACR_NAME }}
+      
+      - name: Build and push Docker images
+        run: |
+          # Auth service
+          docker build -t ${{ secrets.ACR_NAME }}.azurecr.io/auth:${{ github.sha }} ./auth
+          docker push ${{ secrets.ACR_NAME }}.azurecr.io/auth:${{ github.sha }}
+          
+          # Backend
+          docker build -t ${{ secrets.ACR_NAME }}.azurecr.io/backend:${{ github.sha }} ./backend_nest
+          docker push ${{ secrets.ACR_NAME }}.azurecr.io/backend:${{ github.sha }}
+          
+          # Frontend
+          docker build -t ${{ secrets.ACR_NAME }}.azurecr.io/frontend:${{ github.sha }} ./frontend
+          docker push ${{ secrets.ACR_NAME }}.azurecr.io/frontend:${{ github.sha }}
+          
+          # Gateway
+          docker build -t ${{ secrets.ACR_NAME }}.azurecr.io/gateway:${{ github.sha }} ./gateway
+          docker push ${{ secrets.ACR_NAME }}.azurecr.io/gateway:${{ github.sha }}
+      
+      - name: Deploy to AKS
+        run: |
+          kubectl set image deployment/auth \
+            auth=${{ secrets.ACR_NAME }}.azurecr.io/auth:${{ github.sha }}
+          
+          kubectl set image deployment/backend \
+            backend=${{ secrets.ACR_NAME }}.azurecr.io/backend:${{ github.sha }}
+          
+          kubectl set image deployment/frontend \
+            frontend=${{ secrets.ACR_NAME }}.azurecr.io/frontend:${{ github.sha }}
+          
+          kubectl set image deployment/gateway \
+            gateway=${{ secrets.ACR_NAME }}.azurecr.io/gateway:${{ github.sha }}
+      
+      - name: Verify deployment
+        run: |
+          kubectl rollout status deployment/auth --timeout=5m
+          kubectl rollout status deployment/backend --timeout=5m
+          kubectl rollout status deployment/frontend --timeout=5m
+          kubectl rollout status deployment/gateway --timeout=5m

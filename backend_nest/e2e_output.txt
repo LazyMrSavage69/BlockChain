@@ -1,0 +1,83 @@
+
+> main-front@0.0.1 test:e2e
+> jest --config ./test/jest-e2e.json
+
+PASS test/app.e2e-spec.ts
+[Nest] 11036  - 02/01/2026 19:30:21   ERROR [ExceptionsHandler] Object(4) {
+  code: '23502',
+  details: 'Failing row contains (3d4fe78c-9787-49f4-a19e-652218b1106b, null, free, active, 2026-01-02 18:30:20.863+00, 2026-02-02 18:30:20.863+00, 2026-01-02 18:30:20.653279+00, 2026-01-02 18:30:20.653279+00, null).',
+  hint: null,
+  message: 'null value in column "user_email" of relation "subscriptions" violates not-null constraint'
+}
+FAIL test/subscription.e2e-spec.ts
+  ΓùÅ Console
+
+    console.error
+      Γ¥î Error creating subscription: {
+        code: '23502',
+        details: 'Failing row contains (3d4fe78c-9787-49f4-a19e-652218b1106b, null, free, active, 2026-01-02 18:30:20.863+00, 2026-02-02 18:30:20.863+00, 2026-01-02 18:30:20.653279+00, 2026-01-02 18:30:20.653279+00, null).',
+        hint: null,
+        message: 'null value in column "user_email" of relation "subscriptions" violates not-null constraint'
+      }
+
+      143 |       return data;
+      144 |     } catch (error) {
+    > 145 |       console.error('Γ¥î Error creating subscription:', error);
+          |               ^
+      146 |       throw error;
+      147 |     }
+      148 |   }
+
+      at SubscriptionService.createSubscription (../src/subscription/subscription.service.ts:145:15)
+      at SubscriptionService.checkUsageLimit (../src/subscription/subscription.service.ts:452:26)
+      at SubscriptionController.checkUsageLimit (../src/subscription/subscription.controller.ts:229:19)
+      at ../node_modules/@nestjs/core/router/router-execution-context.js:46:28
+      at ../node_modules/@nestjs/core/router/router-proxy.js:9:17
+
+  ΓùÅ Subscription API (e2e) ΓÇ║ /api/subscriptions/usage/check (POST) ΓÇ║ should return 400 for invalid email
+
+    expected 400 "Bad Request", got 200 "OK"
+
+      51 |                 .post('/api/subscriptions/usage/check')
+      52 |                 .send({ userEmail: 'invalid-email' })
+    > 53 |                 .expect(400);
+         |                  ^
+      54 |         });
+      55 |
+      56 |         it('should return 400 for missing userEmail', () => {
+
+      at Object.<anonymous> (subscription.e2e-spec.ts:53:18)
+      ----
+      at Test._assertStatus (../node_modules/supertest/lib/test.js:309:14)
+      at ../node_modules/supertest/lib/test.js:365:13
+      at Test._assertFunction (../node_modules/supertest/lib/test.js:342:13)
+      at Test.assert (../node_modules/supertest/lib/test.js:195:23)
+      at localAssert (../node_modules/supertest/lib/test.js:138:14)
+      at Server.<anonymous> (../node_modules/supertest/lib/test.js:152:11)
+
+  ΓùÅ Subscription API (e2e) ΓÇ║ /api/subscriptions/usage/check (POST) ΓÇ║ should return 400 for missing userEmail
+
+    expected 400 "Bad Request", got 500 "Internal Server Error"
+
+      58 |                 .post('/api/subscriptions/usage/check')
+      59 |                 .send({})
+    > 60 |                 .expect(400);
+         |                  ^
+      61 |         });
+      62 |     });
+      63 |
+
+      at Object.<anonymous> (subscription.e2e-spec.ts:60:18)
+      ----
+      at Test._assertStatus (../node_modules/supertest/lib/test.js:309:14)
+      at ../node_modules/supertest/lib/test.js:365:13
+      at Test._assertFunction (../node_modules/supertest/lib/test.js:342:13)
+      at Test.assert (../node_modules/supertest/lib/test.js:195:23)
+      at localAssert (../node_modules/supertest/lib/test.js:138:14)
+      at Server.<anonymous> (../node_modules/supertest/lib/test.js:152:11)
+
+Test Suites: 1 failed, 1 passed, 2 total
+Tests:       2 failed, 6 passed, 8 total
+Snapshots:   0 total
+Time:        2.782 s, estimated 4 s
+Ran all test suites.

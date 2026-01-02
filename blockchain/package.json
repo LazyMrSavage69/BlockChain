@@ -8,6 +8,9 @@
     "deploy": "npx hardhat run scripts/deploy.ts --network localhost",
     "node": "npx hardhat node"
   },
+  "dependencies": {
+    "dotenv": "^16.4.5"
+  },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "hardhat": "^2.22.0"

@@ -1,0 +1,20 @@
+
+
+  ContractRegistry
+    registerContract
+      Γ£ö Should register a contract successfully
+      Γ£ö Should emit ContractRegistered event
+      Γ£ö Should fail if contract ID already exists
+    signContract
+      Γ£ö Should allow initiator to sign
+      Γ£ö Should allow counterparty to sign
+      Γ£ö Should emit ContractSigned event
+      Γ£ö Should fail if signer is not a party
+    makePayment
+      Γ£ö Should allow payment with correct amount
+      Γ£ö Should fail with incorrect amount
+      Γ£ö Should emit ContractCompleted when both pay
+
+
+  10 passing (535ms)
+

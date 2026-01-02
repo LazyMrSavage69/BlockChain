@@ -52,6 +52,7 @@ services:
     environment:
       PORT: 5000
       SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
       SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
       NODE_ENV: production
       AUTH_SERVICE_URL: "http://auth-service:3060"
@@ -112,16 +113,16 @@ services:
     networks:
       - miniprojet-net
 
-  stripe-listener:
-    image: stripe/stripe-cli:latest
-    container_name: stripe-listener
-    command: listen --forward-to http://backend_nest:5000/api/subscriptions/webhook
-    environment:
-      STRIPE_API_KEY: ${STRIPE_SECRET_KEY}
-    depends_on:
-      - backend_nest
-    networks:
-      - miniprojet-net
+  # stripe-listener:
+  #   image: stripe/stripe-cli:latest
+  #   container_name: stripe-listener
+  #   command: listen --api-key ${STRIPE_SECRET_KEY} --forward-to http://backend_nest:5000/api/subscriptions/webhook
+  #   environment:
+  #     STRIPE_DEVICE_NAME: docker-stripe-listener
+  #   depends_on:
+  #     - backend_nest
+  #   networks:
+  #     - miniprojet-net
 
   hardhat-node:
     image: node:20-alpine

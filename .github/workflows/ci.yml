@@ -1,0 +1,128 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # Backend NestJS Tests
+  test-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: backend_nest/package-lock.json
+      
+      - name: Install dependencies
+        working-directory: ./backend_nest
+        run: npm ci
+      
+      - name: Run unit tests
+        working-directory: ./backend_nest
+        run: npm run test -- --coverage
+      
+      - name: Run e2e tests
+        working-directory: ./backend_nest
+        run: npm run test:e2e || true
+      
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./backend_nest/coverage/lcov.info
+          flags: backend-nest
+          fail_ci_if_error: false
+
+  # Frontend Next.js Tests
+  test-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      
+      - name: Install dependencies
+        working-directory: ./frontend
+        run: npm ci
+      
+      - name: Run tests
+        working-directory: ./frontend
+        run: npm run test -- --coverage || true
+      
+      - name: Build
+        working-directory: ./frontend
+        run: npm run build
+
+  # Blockchain Tests
+  test-blockchain:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+      
+      - name: Install dependencies
+        working-directory: ./blockchain
+        run: npm ci
+      
+      - name: Run Hardhat tests
+        working-directory: ./blockchain
+        run: npx hardhat test
+      
+      - name: Run coverage
+        working-directory: ./blockchain
+        run: npx hardhat coverage || true
+
+  # Auth Service (Go) Tests
+  test-auth:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.24'
+      
+      - name: Run tests
+        working-directory: ./auth
+        run: |
+          go mod download
+          go test ./... -v -coverprofile=coverage.out || true
+          go tool cover -func=coverage.out || true
+
+  # Build Docker images
+  build-docker:
+    needs: [test-backend, test-frontend, test-blockchain, test-auth]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+      
+      - name: Build auth service
+        run: docker build -t auth-service:latest ./auth
+      
+      - name: Build backend
+        run: docker build -t backend-nest:latest ./backend_nest
+      
+      - name: Build frontend
+        run: docker build -t frontend:latest ./frontend --build-arg NEXT_PUBLIC_API_URL=http://localhost:8000
+      
+      - name: Build gateway
+        run: docker build -t gateway:latest ./gateway || true

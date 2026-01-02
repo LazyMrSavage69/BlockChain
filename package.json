@@ -1,0 +1,37 @@
+{
+    "name": "miniprojet-monorepo",
+    "version": "1.0.0",
+    "description": "Blockchain-based contract management platform",
+    "private": true,
+    "scripts": {
+        "test": "npm run test:all",
+        "test:all": "npm run test:backend && npm run test:frontend && npm run test:blockchain && npm run test:auth",
+        "test:auth": "cd auth && go test ./... -v -cover",
+        "test:backend": "cd backend_nest && npm test",
+        "test:backend:cov": "cd backend_nest && npm run test:cov",
+        "test:backend:e2e": "cd backend_nest && npm run test:e2e",
+        "test:frontend": "cd frontend && npm test",
+        "test:frontend:cov": "cd frontend && npm test -- --coverage",
+        "test:blockchain": "cd blockchain && npx hardhat test",
+        "test:blockchain:cov": "cd blockchain && npx hardhat coverage",
+        "test:integration": "docker-compose -f docker-compose.test.yml up --abort-on-container-exit",
+        "test:watch": "npm run test:backend -- --watch",
+        "security:audit": "npm run security:npm && npm run security:docker",
+        "security:npm": "cd backend_nest && npm audit && cd ../frontend && npm audit",
+        "security:docker": "bash ./security/scan-all.sh",
+        "security:zap": "bash ./security/zap-scan.sh",
+        "docker:build": "docker-compose build",
+        "docker:test": "docker-compose -f docker-compose.test.yml up --build",
+        "coverage:all": "npm run test:backend:cov && npm run test:frontend:cov && npm run test:blockchain:cov"
+    },
+    "keywords": [
+        "blockchain",
+        "contracts",
+        "microservices"
+    ],
+    "author": "",
+    "license": "MIT",
+    "dependencies": {
+        "hardhat": "^3.1.2"
+    }
+}
